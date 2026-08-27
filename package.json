@@ -1,0 +1,31 @@
+{
+  "name": "voto.io",
+  "version": "1.0.0",
+  "license": "MIT",
+  "author": "Damiano Barbati <damiano.barbati@gmail.com> (https://github.com/damianobarbati)",
+  "repository": "https://github.com/damianobarbati/voto.io",
+  "description": "Poll and vote.",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "pnpm": ">=11.24",
+    "node": ">=26.7"
+  },
+  "type": "module",
+  "scripts": {
+    "postinstall": "pnpm audit --audit-level critical",
+    "lint": "biome check --write",
+    "tsc": "tsc",
+    "env:up": "docker compose up -d --wait --quiet-pull --remove-orphans",
+    "env:down": "docker compose down --volumes --remove-orphans"
+  },
+  "dependencies": {
+    "amaro": "^1.1.11"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.8",
+    "@types/node": "^26.3.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
