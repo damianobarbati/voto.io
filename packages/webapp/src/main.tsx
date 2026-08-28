@@ -18,7 +18,7 @@ const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/polls",
+        path: "/poll/list",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
@@ -30,19 +30,19 @@ const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/poll/:id/results",
+        path: "/poll/:id/stats",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/groups",
+        path: "/my-groups",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/group/new",
+        path: "/my-groups/new",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/group/:id",
+        path: "/my-groups/:id",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
@@ -50,7 +50,11 @@ const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/profile",
+        path: "/login",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
+        path: "/my-profile",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
@@ -58,23 +62,35 @@ const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/settings",
+        path: "/my-settings",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/creator/:id",
+        path: "/my-subscription",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/live/new",
+        path: "/plans",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/live/:id",
+        path: "/checkout",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
-        path: "/live/:id/join",
+        path: "/u/:id",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
+        path: "/live-poll/new",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
+        path: "/live-poll/:id",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
+        path: "/live-poll/:id/vote",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
     ],

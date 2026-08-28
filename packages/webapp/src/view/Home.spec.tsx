@@ -55,7 +55,7 @@ describe("Home", () => {
   });
 
   it("sorts polls by turnout, vote count, and closing time", () => {
-    const router = createMemoryRouter([{ path: "/polls", Component: Home }], { initialEntries: ["/polls"] });
+    const router = createMemoryRouter([{ path: "/poll/list", Component: Home }], { initialEntries: ["/poll/list"] });
     const { container } = render(<RouterProvider router={router} />);
     const sorter = screen.getByLabelText("Sort polls");
     fireEvent.change(sorter, { target: { value: "Closing time: soonest" } });
@@ -68,7 +68,7 @@ describe("Home", () => {
   });
 
   it("toggles between public and accessible group polls", () => {
-    const router = createMemoryRouter([{ path: "/polls", Component: Home }], { initialEntries: ["/polls"] });
+    const router = createMemoryRouter([{ path: "/poll/list", Component: Home }], { initialEntries: ["/poll/list"] });
     const { container } = render(<RouterProvider router={router} />);
     expect(container.textContent).toContain("More green space in the city");
     const groupFilter = screen.getAllByRole("button", { name: "My groups" }).at(-1);
@@ -86,7 +86,7 @@ describe("Home", () => {
   });
 
   it("shows many-choice selection metrics", () => {
-    const router = createMemoryRouter([{ path: "/poll/:id/results", Component: Home }], { initialEntries: ["/poll/school-meals/results"] });
+    const router = createMemoryRouter([{ path: "/poll/:id/stats", Component: Home }], { initialEntries: ["/poll/school-meals/stats"] });
     render(<RouterProvider router={router} />);
     expect(screen.getAllByText("% of voters", { exact: false }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("% of selections", { exact: false }).length).toBeGreaterThan(0);
@@ -94,14 +94,14 @@ describe("Home", () => {
   });
 
   it("shows instant-runoff results for ranked polls", () => {
-    const router = createMemoryRouter([{ path: "/poll/:id/results", Component: Home }], { initialEntries: ["/poll/night-buses/results"] });
+    const router = createMemoryRouter([{ path: "/poll/:id/stats", Component: Home }], { initialEntries: ["/poll/night-buses/stats"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByText("Instant-runoff rounds")).toBeDefined();
     expect(screen.getByText("Winner: Extend route N6")).toBeDefined();
   });
 
   it("renders the groups tabs and upgrade action", () => {
-    const router = createMemoryRouter([{ path: "/groups", Component: Home }], { initialEntries: ["/groups"] });
+    const router = createMemoryRouter([{ path: "/my-groups", Component: Home }], { initialEntries: ["/my-groups"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("heading", { level: 1, name: "Your groups" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Groups you belong to" })).toBeDefined();
@@ -111,7 +111,7 @@ describe("Home", () => {
   });
 
   it("opens and closes a live poll", () => {
-    const router = createMemoryRouter([{ path: "/live/:id", Component: Home }], { initialEntries: ["/live/101"] });
+    const router = createMemoryRouter([{ path: "/live-poll/:id", Component: Home }], { initialEntries: ["/live-poll/101"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("img", { name: "Live poll QR code" })).toBeDefined();
     expect(screen.queryByText("voto.io")).toBeNull();
@@ -126,7 +126,7 @@ describe("Home", () => {
   });
 
   it("shows the mobile live voter waiting state after registration", () => {
-    const router = createMemoryRouter([{ path: "/live/:id/join", Component: Home }], { initialEntries: ["/live/101/join"] });
+    const router = createMemoryRouter([{ path: "/live-poll/:id/vote", Component: Home }], { initialEntries: ["/live-poll/101/vote"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("heading", { level: 1, name: "Join Elena Rossi's live poll" })).toBeDefined();
     expect(screen.queryByText("voto.io")).toBeNull();
@@ -135,20 +135,34 @@ describe("Home", () => {
   });
 
   it("shows the audience-limit state from the voter URL", () => {
-    const router = createMemoryRouter([{ path: "/live/:id/join", Component: Home }], { initialEntries: ["/live/101/join?state=quota"] });
+    const router = createMemoryRouter([{ path: "/live-poll/:id/vote", Component: Home }], { initialEntries: ["/live-poll/101/vote?state=quota"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("heading", { level: 1, name: "Audience limit reached" })).toBeDefined();
     expect(screen.getByText("Waiting the creator to increase the poll audience...")).toBeDefined();
   });
 
   it("shows read-only user information and plan controls", () => {
-    const router = createMemoryRouter([{ path: "/profile", Component: Home }], { initialEntries: ["/profile"] });
+    const router = createMemoryRouter([{ path: "/my-profile", Component: Home }], { initialEntries: ["/my-profile"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("heading", { level: 1, name: "Profile" })).toBeDefined();
     expect(screen.getByText("elena.rossi@example.com")).toBeDefined();
-    expect(screen.getByText("100 live users")).toBeDefined();
-    expect(screen.getByRole("link", { name: "voto.io/creator/1" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "voto.io/u/1" })).toBeDefined();
     expect(screen.queryByRole("heading", { level: 2, name: "Your polls" })).toBeNull();
+  });
+
+  it("returns to the selected subscription after checkout", () => {
+    const router = createMemoryRouter(
+      [
+        { path: "/checkout", Component: Home },
+        { path: "/my-subscription", Component: Home },
+      ],
+      { initialEntries: ["/checkout?plan=big"] },
+    );
+    render(<RouterProvider router={router} />);
+    expect(screen.getByText("Big plan")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Complete purchase" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Subscription" })).toBeDefined();
+    expect(screen.getByText("Valid until 28 September 2026")).toBeDefined();
   });
 
   it("shows the user poll tabs on the dedicated page", () => {
@@ -161,10 +175,10 @@ describe("Home", () => {
   it("shows group and creator tabs", () => {
     const router = createMemoryRouter(
       [
-        { path: "/groups", Component: Home },
-        { path: "/creator/:id", Component: Home },
+        { path: "/my-groups", Component: Home },
+        { path: "/u/:id", Component: Home },
       ],
-      { initialEntries: ["/groups"] },
+      { initialEntries: ["/my-groups"] },
     );
     render(<RouterProvider router={router} />);
     expect(screen.getAllByRole("button", { name: "Groups you manage" }).length).toBeGreaterThan(0);

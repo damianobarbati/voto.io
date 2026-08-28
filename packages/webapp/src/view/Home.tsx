@@ -1315,10 +1315,12 @@ const profilePlans: Record<PlanName, ProfilePlan> = {
   Big: { price: "$90/mo", groupLimit: "1,000 members per group", liveLimit: "10,000 live users" },
   Unlimited: { price: "$900/mo", groupLimit: "Unlimited group members", liveLimit: "Unlimited live users" },
 };
+const planFromSearch = (search: string) => {
+  const plan = new URLSearchParams(search).get("plan");
+  return (Object.keys(profilePlans) as PlanName[]).find((planName) => planName.toLowerCase() === plan);
+};
 
 const Profile = () => {
-  const [plan, setPlan] = React.useState<PlanName>("Free");
-  const currentPlan = profilePlans[plan];
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Profile</h1>
@@ -1355,12 +1357,28 @@ const Profile = () => {
           </div>
         </dl>
       </section>
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <p className="mt-5 text-slate-600 text-sm">
+        Public creator link:{" "}
+        <Link className="font-bold text-blue-700" to="/u/1">
+          voto.io/u/1
+        </Link>
+      </p>
+    </main>
+  );
+};
+
+const Subscription = () => {
+  const plan = planFromSearch(useLocation().search) ?? "Free";
+  const currentPlan = profilePlans[plan];
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
+      <h1 className="font-bold text-3xl lg:text-5xl">Subscription</h1>
+      <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-bold text-xl">Your plan</h2>
-            <h2 className="mt-1 font-bold text-2xl">{plan}</h2>
-            <p className="mt-1 text-slate-500 text-sm">Valid until 28 September 2026</p>
+            <h2 className="font-bold text-xl">Current plan</h2>
+            <p className="mt-1 font-bold text-2xl">{plan}</p>
+            <p className="mt-1 text-slate-500 text-sm">{plan === "Free" ? "Valid forever" : "Valid until 28 September 2026"}</p>
           </div>
           <strong className="text-2xl">{currentPlan.price}</strong>
         </div>
@@ -1368,26 +1386,115 @@ const Profile = () => {
           <p className="rounded-xl bg-slate-100 p-3">{currentPlan.groupLimit}</p>
           <p className="rounded-xl bg-slate-100 p-3">{currentPlan.liveLimit}</p>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {(Object.keys(profilePlans) as PlanName[]).map((planName) => (
-            <button
-              className="rounded-full border border-slate-300 px-4 py-2 font-bold text-sm disabled:border-blue-600 disabled:bg-blue-50 disabled:text-blue-800"
-              disabled={planName === plan}
-              key={planName}
-              onClick={() => setPlan(planName)}
-              type="button"
-            >
-              {planName === plan ? "Current plan" : `Switch to ${planName}`}
-            </button>
-          ))}
+        <Link className="mt-5 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
+          Change plan
+        </Link>
+      </section>
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+        <h2 className="font-bold text-xl">Payments</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-150 text-left text-sm">
+            <thead className="border-slate-200 border-b text-slate-500">
+              <tr>
+                <th className="pr-4 pb-3">Date</th>
+                <th className="pr-4 pb-3">Method</th>
+                <th className="pr-4 pb-3">Plan</th>
+                <th className="pr-4 pb-3">Amount</th>
+                <th className="pb-3">Invoice</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-4 pr-4">15 July 2026</td>
+                <td className="py-4 pr-4">Credit card</td>
+                <td className="py-4 pr-4">Small</td>
+                <td className="py-4 pr-4">$9</td>
+                <td className="py-4">
+                  <button className="font-bold text-blue-700" type="button">
+                    Download invoice
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
-      <p className="mt-5 text-slate-600 text-sm">
-        Public creator link:{" "}
-        <Link className="font-bold text-blue-700" to="/u/1">
-          voto.io/u/1
-        </Link>
-      </p>
+    </main>
+  );
+};
+
+const Plans = () => (
+  <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
+    <h1 className="font-bold text-3xl lg:text-5xl">Plans</h1>
+    <div className="mt-7 grid gap-4 sm:grid-cols-3">
+      {(["Small", "Big", "Unlimited"] as PlanName[]).map((planName) => {
+        const plan = profilePlans[planName];
+        return (
+          <article className="rounded-2xl border border-slate-200 bg-white p-5" key={planName}>
+            <h2 className="font-bold text-2xl">{planName}</h2>
+            <p className="mt-2 font-bold text-xl">{plan.price}</p>
+            <p className="mt-5 text-slate-600 text-sm">{plan.groupLimit}</p>
+            <p className="mt-2 text-slate-600 text-sm">{plan.liveLimit}</p>
+            <Link className="mt-6 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to={`/checkout?plan=${planName.toLowerCase()}`}>
+              Select plan
+            </Link>
+          </article>
+        );
+      })}
+    </div>
+  </main>
+);
+
+const Checkout = () => {
+  const navigate = useNavigate();
+  const plan = planFromSearch(useLocation().search) ?? "Small";
+  return (
+    <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
+      <h1 className="font-bold text-3xl lg:text-5xl">Checkout</h1>
+      <form
+        className="mt-7 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"
+        onSubmit={(event) => {
+          event.preventDefault();
+          navigate(`/my-subscription?plan=${plan.toLowerCase()}`);
+        }}
+      >
+        <p className="font-bold text-lg">{plan} plan</p>
+        <fieldset>
+          <legend className="font-bold text-sm">Payment method</legend>
+          <div className="mt-3 space-y-2">
+            {["Credit card", "PayPal", "Apple Pay"].map((method) => (
+              <label className="flex items-center gap-2" key={method}>
+                <input defaultChecked={method === "Credit card"} name="payment-method" type="radio" /> {method}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+          Complete purchase
+        </button>
+      </form>
+    </main>
+  );
+};
+
+const Login = () => {
+  const navigate = useNavigate();
+  return (
+    <main className="mx-auto max-w-md px-4 py-8 sm:px-7">
+      <h1 className="font-bold text-3xl lg:text-5xl">Log in</h1>
+      <form
+        className="mt-7 space-y-5 rounded-2xl border border-slate-200 bg-white p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          navigate("/my-profile");
+        }}
+      >
+        <Field label="Email" type="email" />
+        <Field label="Password" type="password" />
+        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+          Log in
+        </button>
+      </form>
     </main>
   );
 };
@@ -1485,23 +1592,27 @@ const Creator = () => {
 
 export const Home = () => {
   const path = useLocation().pathname;
-  const isLivePoll = path.startsWith("/live/");
-  const isLiveVoter = path.endsWith("/join") && isLivePoll;
+  const isLivePoll = path.startsWith("/live-poll/");
+  const isLiveVoter = path.endsWith("/vote") && isLivePoll;
   let page = <Landing />;
-  if (path.endsWith("/results")) page = <ResultsPage />;
+  if (path.endsWith("/stats")) page = <ResultsPage />;
   else if (path === "/poll/new") page = <CreatePoll />;
+  else if (path === "/poll/list") page = <PollList />;
   else if (path.startsWith("/poll/")) page = <PollDetail />;
-  else if (path === "/polls") page = <PollList />;
-  else if (path === "/groups") page = <Groups />;
-  else if (path === "/group/new") page = <GroupNew />;
-  else if (path.startsWith("/group/")) page = <GroupDetail />;
+  else if (path === "/my-groups") page = <Groups />;
+  else if (path === "/my-groups/new") page = <GroupNew />;
+  else if (path.startsWith("/my-groups/")) page = <GroupDetail />;
   else if (path === "/register") page = <Register />;
-  else if (path === "/profile") page = <Profile />;
+  else if (path === "/login") page = <Login />;
+  else if (path === "/my-profile") page = <Profile />;
   else if (path === "/my-polls") page = <MyPolls />;
-  else if (path === "/settings") page = <Settings />;
-  else if (path.startsWith("/creator/")) page = <Creator />;
+  else if (path === "/my-settings") page = <Settings />;
+  else if (path === "/my-subscription") page = <Subscription />;
+  else if (path === "/plans") page = <Plans />;
+  else if (path === "/checkout") page = <Checkout />;
+  else if (path.startsWith("/u/")) page = <Creator />;
   else if (isLiveVoter) page = <LiveVoter />;
-  else if (path.startsWith("/live/")) page = <LivePoll />;
+  else if (isLivePoll) page = <LivePoll />;
   return (
     <>
       {!isLivePoll && <Header />}
