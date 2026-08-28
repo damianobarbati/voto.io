@@ -54,7 +54,7 @@ describe("Home", () => {
     expect(screen.queryByRole("button", { name: "Remove option 1" })).toBeNull();
   });
 
-  it("sorts polls by turnout and closing time", () => {
+  it("sorts polls by turnout, vote count, and closing time", () => {
     const router = createMemoryRouter([{ path: "/polls", Component: Home }], { initialEntries: ["/polls"] });
     const { container } = render(<RouterProvider router={router} />);
     const sorter = screen.getByLabelText("Sort polls");
@@ -62,7 +62,9 @@ describe("Home", () => {
     const pollCards = container.querySelectorAll("article");
     expect(pollCards[0].textContent).toContain("More green space in the city");
     fireEvent.change(sorter, { target: { value: "Turnout: low to high" } });
-    expect(container.querySelectorAll("article")[0].textContent).toContain("Free school meals");
+    expect(container.querySelectorAll("article")[0].textContent).toContain("Community sports programme");
+    fireEvent.change(sorter, { target: { value: "Votes: high to low" } });
+    expect(container.querySelectorAll("article")[0].textContent).toContain("More green space in the city");
   });
 
   it("toggles between public and accessible group polls", () => {

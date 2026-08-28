@@ -224,6 +224,7 @@ If the user is registered and logged-in, the top-right "Register" button is repl
 Hovering or tapping the profile triggers a dropdown with:
 - Polls
 - Groups
+- Subscription
 - Profile
 - Settings
 - Logout
@@ -231,7 +232,10 @@ Hovering or tapping the profile triggers a dropdown with:
 Settings page provides the option to change email and/or password.
 
 Profile page provides a form with user information read-only, where nothing can be changed after registration.  
-Below his info, his current active plan with the limits, and the option to downgrade/upgrade his plan to any other one.
+
+Subscription page shows the current active plan with the limits, the option to downgrade/upgrade his plan to any other one.  
+Below the plan, there is the list of payments with the date of payment, the method (credit card, paypal or apple pay), the amount, the plan purchased and a button to download the invoice.
+The free plan says, "Valid forever".
 
 The groups page provides two tabs: 
 - the groups he belongs to
@@ -250,3 +254,29 @@ In the creator's page there are 2 main tabs, the open polls (if visible to the u
 
 Use react-i18n to localize the app.
 Use recharts for charts.
+
+## Full path tree
+
+/ => homepage
+/register
+/login
+/poll/list => list of polls
+/poll/new => form to create a new poll
+/poll/:id => poll details
+/poll/:id/stats => poll results
+/live-poll/new => create live poll
+/live-poll/:id => manage live poll
+/live-poll/:id/vote => shared voter link
+
+/my-polls
+/my-groups
+/my-groups/new
+/my-groups/:id
+/my-profile
+/my-settings
+/my-subscription => page where the user can manage his subscription and downgrade or upgrade his plan
+
+/plans => page where the user can select a plan: once the plan is clicked, he goes to the checkout page to complete the payment with either paypal, or credit card or apple pay; after purchase he goes back to the /my-subscription page.
+/checkout?plan=xyz
+
+/u/:id => public page for the user, when other users can see his polls

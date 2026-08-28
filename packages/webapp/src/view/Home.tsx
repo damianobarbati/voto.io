@@ -32,7 +32,6 @@ type Poll = {
   id: string;
   title: string;
   description: string;
-  category: string;
   votingMethod: VotingMethod;
   options: string[];
   votes: number;
@@ -43,7 +42,7 @@ type Poll = {
   groupId?: string;
 };
 type Range = { range: string; votes: number; percentage: number };
-type PollSort = "Turnout: low to high" | "Turnout: high to low" | "Closing time: soonest" | "Closing time: latest";
+type PollSort = "Turnout: low to high" | "Turnout: high to low" | "Votes: low to high" | "Votes: high to low" | "Closing time: soonest" | "Closing time: latest";
 
 const groups: Group[] = [
   { id: "northstar", name: "Northstar Strategy", description: "Leadership and planning", members: 46, limit: 100, owner: true, activeMember: true },
@@ -61,7 +60,6 @@ const polls: Poll[] = [
     id: "city-green",
     title: "More green space in the city",
     description: "Choose the next public-space investment.",
-    category: "Civic life",
     votingMethod: "One choice",
     options: ["Plant 1,000 new trees", "Create community gardens", "Build a small urban forest", "No suitable option."],
     votes: 1248,
@@ -73,7 +71,6 @@ const polls: Poll[] = [
     id: "night-buses",
     title: "Night buses on weekends",
     description: "Rank the late-night transport priorities.",
-    category: "Transport",
     votingMethod: "Ranked choice",
     options: ["Extend route N6", "Add an airport connection", "Increase frequency on route N15"],
     votes: 681,
@@ -86,7 +83,6 @@ const polls: Poll[] = [
     id: "school-meals",
     title: "Free school meals",
     description: "Select every service that should be included.",
-    category: "Education",
     votingMethod: "Multiple choice",
     options: ["Breakfast", "Lunch", "After-school snacks", "No suitable option."],
     votes: 442,
@@ -98,7 +94,6 @@ const polls: Poll[] = [
     id: "board-priorities",
     title: "Q4 strategic priorities",
     description: "Choose the initiative to lead the next quarter.",
-    category: "Northstar Strategy",
     votingMethod: "One choice",
     options: ["Market expansion", "Product reliability", "Enterprise sales", "No suitable option."],
     votes: 31,
@@ -111,7 +106,6 @@ const polls: Poll[] = [
     id: "partner-review",
     title: "Partner programme review",
     description: "Private partner council decision.",
-    category: "Partner Council",
     votingMethod: "Multiple choice",
     options: ["Renew criteria", "Change criteria", "Pause the programme", "No suitable option."],
     votes: 48,
@@ -119,6 +113,28 @@ const polls: Poll[] = [
     authorName: "Elena Rossi",
     closes: "6 days",
     groupId: "vendors",
+  },
+  {
+    id: "neighbourhood-library",
+    title: "Neighbourhood library opening hours",
+    description: "Choose the best schedule for the local library.",
+    votingMethod: "One choice",
+    options: ["Open earlier", "Open later", "Open on Sundays", "No suitable option."],
+    votes: 916,
+    eligible: 1580,
+    authorName: "Elena Rossi",
+    closes: "5 days",
+  },
+  {
+    id: "community-sports",
+    title: "Community sports programme",
+    description: "Select the activities to fund next season.",
+    votingMethod: "Multiple choice",
+    options: ["Youth football", "Swimming lessons", "Senior fitness", "No suitable option."],
+    votes: 287,
+    eligible: 760,
+    authorName: "Elena Rossi",
+    closes: "15 days",
   },
 ];
 const results = [
@@ -232,10 +248,10 @@ const Header = () => {
           <Link className="hidden rounded-full bg-blue-600 px-3 py-2 font-bold text-white no-underline hover:bg-blue-500 sm:block" to="/poll/new">
             {t("nav.createPoll")}
           </Link>
-          <Link className="hidden text-slate-300 no-underline hover:text-white md:block" to="/live/new">
+          <Link className="hidden text-slate-300 no-underline hover:text-white md:block" to="/live-poll/new">
             {t("nav.createLivePoll")}
           </Link>
-          <Link className="hidden text-slate-300 no-underline hover:text-white sm:block" to="/polls">
+          <Link className="hidden text-slate-300 no-underline hover:text-white sm:block" to="/poll/list">
             {t("nav.explorePolls")}
           </Link>
           {isLoggedIn ? (
@@ -248,13 +264,16 @@ const Header = () => {
                   <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-polls">
                     Polls
                   </Link>
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/groups">
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-groups">
                     Groups
                   </Link>
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/profile">
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-subscription">
+                    Subscription
+                  </Link>
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-profile">
                     {t("nav.profile")}
                   </Link>
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/settings">
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-settings">
                     Settings
                   </Link>
                   <button className="w-full rounded-lg px-3 py-2 text-left font-semibold text-red-700 hover:bg-red-50" onClick={logout} type="button">
@@ -309,7 +328,7 @@ const PollCard = ({ poll }: { poll: Poll }) => {
       </div>
       <p className="mt-2 text-slate-500 text-xs">
         Published by{" "}
-        <Link className="font-bold text-blue-700 no-underline" to="/creator/1">
+        <Link className="font-bold text-blue-700 no-underline" to="/u/1">
           {poll.authorName}
         </Link>
       </p>
@@ -335,10 +354,10 @@ const Landing = () => {
             <h1 className="mt-3 max-w-3xl font-bold text-5xl text-white tracking-tight lg:text-7xl">{t("landing.title")}</h1>
             <p className="mt-5 max-w-xl text-slate-300">{t("landing.description")}</p>
             <div className="mt-8 flex gap-3">
-              <Link className="rounded-full bg-blue-500 px-5 py-3 font-bold text-white no-underline hover:bg-blue-400" to="/polls">
+              <Link className="rounded-full bg-blue-500 px-5 py-3 font-bold text-white no-underline hover:bg-blue-400" to="/poll/list">
                 {t("landing.poll")}
               </Link>
-              <Link className="rounded-full border border-slate-600 px-5 py-3 font-bold text-white no-underline" to="/polls">
+              <Link className="rounded-full border border-slate-600 px-5 py-3 font-bold text-white no-underline" to="/poll/list">
                 {t("landing.vote")}
               </Link>
             </div>
@@ -355,14 +374,15 @@ const Landing = () => {
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
         <div className="flex items-end justify-between">
           <h2 className="mt-1 font-bold text-3xl lg:text-4xl">{t("landing.polls")}</h2>
-          <Link className="font-bold text-blue-700 text-sm" to="/polls">
+          <Link className="font-bold text-blue-700 text-sm" to="/poll/list">
             {t("landing.allPolls")}
           </Link>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {polls
+          {[...polls]
             .filter(memberCanAccess)
-            .slice(0, 3)
+            .sort((firstPoll, secondPoll) => secondPoll.votes - firstPoll.votes)
+            .slice(0, 6)
             .map((poll) => (
               <PollCard key={poll.id} poll={poll} />
             ))}
@@ -381,6 +401,8 @@ const PollList = () => {
   const visiblePolls = [...filteredPolls].sort((firstPoll, secondPoll) => {
     if (sort === "Turnout: low to high") return pollTurnout(firstPoll) - pollTurnout(secondPoll);
     if (sort === "Turnout: high to low") return pollTurnout(secondPoll) - pollTurnout(firstPoll);
+    if (sort === "Votes: low to high") return firstPoll.votes - secondPoll.votes;
+    if (sort === "Votes: high to low") return secondPoll.votes - firstPoll.votes;
     if (sort === "Closing time: soonest") return pollClosingDays(firstPoll) - pollClosingDays(secondPoll);
     return pollClosingDays(secondPoll) - pollClosingDays(firstPoll);
   });
@@ -410,7 +432,7 @@ const PollList = () => {
           className="mt-0 w-auto"
           label="Sort polls"
           onChange={(event) => setSort(event.target.value as PollSort)}
-          options={["Turnout: high to low", "Turnout: low to high", "Closing time: soonest", "Closing time: latest"]}
+          options={["Turnout: high to low", "Turnout: low to high", "Votes: high to low", "Votes: low to high", "Closing time: soonest", "Closing time: latest"]}
           value={sort}
         />
       </div>
@@ -432,7 +454,7 @@ const CreatePoll = () => {
   const ownedGroups = groups.filter((group) => group.owner);
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500 text-sm" to="/polls">
+      <Link className="font-bold text-slate-500 text-sm" to="/poll/list">
         ← Back to polls
       </Link>
       <h1 className="mt-5 font-bold text-3xl lg:text-5xl">Create a poll</h1>
@@ -535,7 +557,7 @@ const AccessDenied = ({ group }: { group: Group }) => (
     </div>
     <h1 className="mt-5 font-bold text-3xl">Access denied</h1>
     <p className="mt-3 text-slate-600">This poll is restricted to members of {group.name}.</p>
-    <Link className="mt-7 inline-block rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/groups">
+    <Link className="mt-7 inline-block rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/my-groups">
       View your groups
     </Link>
   </main>
@@ -557,7 +579,7 @@ const PollDetail = () => {
   };
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500 text-sm" to="/polls">
+      <Link className="font-bold text-slate-500 text-sm" to="/poll/list">
         ← Back to polls
       </Link>
       <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_270px]">
@@ -627,7 +649,7 @@ const PollDetail = () => {
               <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="button">
                 Submit vote
               </button>
-              <Link className="rounded-full border border-slate-300 px-5 py-3 font-bold text-slate-800 text-sm no-underline" to={`/poll/${poll.id}/results`}>
+              <Link className="rounded-full border border-slate-300 px-5 py-3 font-bold text-slate-800 text-sm no-underline" to={`/poll/${poll.id}/stats`}>
                 See results
               </Link>
             </div>
@@ -1001,7 +1023,7 @@ const LivePoll = () => {
             Close poll
           </button>
           {overAudienceLimit && (
-            <Link className="ml-3 inline-block rounded-full border border-blue-700 px-5 py-3 font-bold text-blue-700 no-underline" to="/groups">
+            <Link className="ml-3 inline-block rounded-full border border-blue-700 px-5 py-3 font-bold text-blue-700 no-underline" to="/my-subscription">
               Upgrade plan
             </Link>
           )}
@@ -1137,7 +1159,7 @@ const Groups = () => {
           <p className="font-bold text-blue-700 text-sm tracking-wider">ORGANISATIONS</p>
           <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Your groups</h1>
         </div>
-        <Link className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/group/new">
+        <Link className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/my-groups/new">
           <FiPlus /> Create group
         </Link>
       </div>
@@ -1171,7 +1193,7 @@ const Groups = () => {
         </div>
         <div className="mt-8 text-center">
           <p className="text-slate-600 text-sm">Upgrade to create and manage private groups.</p>
-          <Link className="mt-3 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/profile">
+          <Link className="mt-3 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
             Upgrade plan
           </Link>
         </div>
@@ -1181,7 +1203,7 @@ const Groups = () => {
 };
 const GroupNew = () => (
   <main className="mx-auto max-w-3xl px-4 py-8 sm:px-7">
-    <Link className="font-bold text-slate-500 text-sm" to="/groups">
+    <Link className="font-bold text-slate-500 text-sm" to="/my-groups">
       ← Back to groups
     </Link>
     <h1 className="mt-5 font-bold text-3xl lg:text-5xl">Create group</h1>
@@ -1211,7 +1233,7 @@ const GroupDetail = () => {
     status === "Accepted" ? "bg-emerald-50 text-emerald-700" : status === "Rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700";
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500 text-sm" to="/groups">
+      <Link className="font-bold text-slate-500 text-sm" to="/my-groups">
         ← Back to groups
       </Link>
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
@@ -1262,7 +1284,7 @@ const Register = () => {
         onSubmit={(event) => {
           event.preventDefault();
           localStorage.setItem(registrationStorageKey, "true");
-          navigate("/profile");
+          navigate("/my-profile");
         }}
       >
         <Field label="First name" />
@@ -1338,6 +1360,7 @@ const Profile = () => {
           <div>
             <h2 className="font-bold text-xl">Your plan</h2>
             <h2 className="mt-1 font-bold text-2xl">{plan}</h2>
+            <p className="mt-1 text-slate-500 text-sm">Valid until 28 September 2026</p>
           </div>
           <strong className="text-2xl">{currentPlan.price}</strong>
         </div>
@@ -1361,8 +1384,8 @@ const Profile = () => {
       </section>
       <p className="mt-5 text-slate-600 text-sm">
         Public creator link:{" "}
-        <Link className="font-bold text-blue-700" to="/creator/1">
-          voto.io/creator/1
+        <Link className="font-bold text-blue-700" to="/u/1">
+          voto.io/u/1
         </Link>
       </p>
     </main>
