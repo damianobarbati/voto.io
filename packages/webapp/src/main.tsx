@@ -50,6 +50,22 @@ const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
+        path: "/profile",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
+        path: "/my-polls",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
+        path: "/settings",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
+        path: "/creator/:id",
+        lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
+      },
+      {
         path: "/live/new",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },

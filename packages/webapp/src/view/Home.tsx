@@ -1,3 +1,4 @@
+import cx from "clsx-tw";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -6,9 +7,11 @@ import {
   FiArrowUp,
   FiBarChart2,
   FiCheck,
+  FiCheckSquare,
   FiClock,
-  FiFilter,
+  FiDisc,
   FiImage,
+  FiList,
   FiLock,
   FiMenu,
   FiPlus,
@@ -17,9 +20,9 @@ import {
   FiUsers,
   FiX,
 } from "react-icons/fi";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { i18n } from "#webapp/i18n.ts";
+import { i18n, languageStorageKey } from "#webapp/i18n.ts";
 
 type VotingMethod = "One choice" | "Multiple choice" | "Ranked choice";
 type RankedAlgorithm = "irv" | "borda";
@@ -34,11 +37,13 @@ type Poll = {
   options: string[];
   votes: number;
   eligible: number;
+  authorName: string;
   closes: string;
   rankedAlgorithm?: RankedAlgorithm;
   groupId?: string;
 };
 type Range = { range: string; votes: number; percentage: number };
+type PollSort = "Turnout: low to high" | "Turnout: high to low" | "Closing time: soonest" | "Closing time: latest";
 
 const groups: Group[] = [
   { id: "northstar", name: "Northstar Strategy", description: "Leadership and planning", members: 46, limit: 100, owner: true, activeMember: true },
@@ -58,9 +63,10 @@ const polls: Poll[] = [
     description: "Choose the next public-space investment.",
     category: "Civic life",
     votingMethod: "One choice",
-    options: ["Plant 1,000 new trees", "Create community gardens", "Build a small urban forest", "No choice fit for me"],
+    options: ["Plant 1,000 new trees", "Create community gardens", "Build a small urban forest", "No suitable option."],
     votes: 1248,
     eligible: 2340,
+    authorName: "Elena Rossi",
     closes: "2 days",
   },
   {
@@ -72,6 +78,7 @@ const polls: Poll[] = [
     options: ["Extend route N6", "Add an airport connection", "Increase frequency on route N15"],
     votes: 681,
     eligible: 1120,
+    authorName: "Elena Rossi",
     closes: "9 days",
     rankedAlgorithm: "irv",
   },
@@ -81,9 +88,10 @@ const polls: Poll[] = [
     description: "Select every service that should be included.",
     category: "Education",
     votingMethod: "Multiple choice",
-    options: ["Breakfast", "Lunch", "After-school snacks", "No choice fit for me"],
+    options: ["Breakfast", "Lunch", "After-school snacks", "No suitable option."],
     votes: 442,
     eligible: 890,
+    authorName: "Elena Rossi",
     closes: "12 days",
   },
   {
@@ -92,9 +100,10 @@ const polls: Poll[] = [
     description: "Choose the initiative to lead the next quarter.",
     category: "Northstar Strategy",
     votingMethod: "One choice",
-    options: ["Market expansion", "Product reliability", "Enterprise sales", "No choice fit for me"],
+    options: ["Market expansion", "Product reliability", "Enterprise sales", "No suitable option."],
     votes: 31,
     eligible: 46,
+    authorName: "Elena Rossi",
     closes: "3 days",
     groupId: "northstar",
   },
@@ -104,9 +113,10 @@ const polls: Poll[] = [
     description: "Private partner council decision.",
     category: "Partner Council",
     votingMethod: "Multiple choice",
-    options: ["Renew criteria", "Change criteria", "Pause the programme", "No choice fit for me"],
+    options: ["Renew criteria", "Change criteria", "Pause the programme", "No suitable option."],
     votes: 48,
     eligible: 86,
+    authorName: "Elena Rossi",
     closes: "6 days",
     groupId: "vendors",
   },
@@ -115,13 +125,13 @@ const results = [
   { label: "Plant 1,000 new trees", votes: 704, percentage: 56 },
   { label: "Create community gardens", votes: 359, percentage: 29 },
   { label: "Build a small urban forest", votes: 185, percentage: 15 },
-  { label: "No choice fit for me", votes: 0, percentage: 0 },
+  { label: "No suitable option.", votes: 0, percentage: 0 },
 ];
 const multipleChoiceResults = [
   { label: "Breakfast", votes: 302, voterPercentage: 68, selectionPercentage: 43 },
   { label: "Lunch", votes: 271, voterPercentage: 61, selectionPercentage: 39 },
   { label: "After-school snacks", votes: 129, voterPercentage: 29, selectionPercentage: 18 },
-  { label: "No suitable option", votes: 18, voterPercentage: 4, selectionPercentage: 0 },
+  { label: "No suitable option.", votes: 18, voterPercentage: 4, selectionPercentage: 0 },
 ];
 const genderBreakdown: Range[] = [
   { range: "Women", votes: 641, percentage: 51.4 },
@@ -158,9 +168,12 @@ const languages = [
   { value: "fr", label: "🇫🇷 Français" },
   { value: "it", label: "🇮🇹 Italiano" },
 ];
+const registrationStorageKey = "voto.registered";
 
 const groupFor = (groupId: string | undefined) => groups.find((group) => group.id === groupId);
 const memberCanAccess = (poll: Poll) => !poll.groupId || groupFor(poll.groupId)?.activeMember === true;
+const pollTurnout = (poll: Poll) => (poll.votes / poll.eligible) * 100;
+const pollClosingDays = (poll: Poll) => Number.parseInt(poll.closes, 10);
 const Field = ({ label, placeholder, textarea = false, type = "text" }: { label: string; placeholder?: string; textarea?: boolean; type?: string }) => (
   <label className="block font-semibold text-sm">
     {label}
@@ -171,10 +184,12 @@ const Field = ({ label, placeholder, textarea = false, type = "text" }: { label:
     )}
   </label>
 );
-const SelectField = ({ label, onChange, options, value }: { label: string; onChange?: React.ChangeEventHandler<HTMLSelectElement>; options: string[]; value?: string }) => (
-  <label className="block font-semibold text-sm">
+type SelectFieldProps = { className?: string; label: string; onChange?: React.ChangeEventHandler<HTMLSelectElement>; options: string[]; value?: string };
+
+const SelectField = ({ className = "", label, onChange, options, value }: SelectFieldProps) => (
+  <label className={cx("block font-semibold text-sm", className)}>
     {label}
-    <select className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" onChange={onChange} value={value}>
+    <select className={`mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal ${className}`} onChange={onChange} value={value}>
       {options.map((option) => (
         <option key={option}>{option}</option>
       ))}
@@ -184,37 +199,75 @@ const SelectField = ({ label, onChange, options, value }: { label: string; onCha
 
 const Header = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [language, setLanguage] = React.useState(i18n.resolvedLanguage ?? i18n.language);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
+  const isLoggedIn = localStorage.getItem(registrationStorageKey) === "true";
+  const changeLanguage: React.ChangeEventHandler<HTMLSelectElement> = async (event) => {
+    const selectedLanguage = event.target.value;
+    await i18n.changeLanguage(selectedLanguage);
+    localStorage.setItem(languageStorageKey, selectedLanguage);
+    setLanguage(selectedLanguage);
+  };
+  const logout = () => {
+    localStorage.removeItem(registrationStorageKey);
+    navigate("/");
+  };
   return (
     <header className="border-slate-800 border-b bg-slate-950 px-4 py-3 shadow-lg sm:px-7">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-        <Link className="font-bold text-white text-xl tracking-tight no-underline" to="/">
-          voto<span className="text-blue-500">.</span>io
-        </Link>
-        <nav className="flex items-center gap-3 text-sm">
-          <Link className="hidden text-slate-300 no-underline hover:text-white sm:block" to="/polls">
-            {t("landing.polls")}
+        <div className="flex items-center gap-3">
+          <Link className="font-bold text-white text-xl tracking-tight no-underline" to="/">
+            voto<span className="text-blue-500">.</span>io
           </Link>
-          <Link className="hidden text-slate-300 no-underline hover:text-white sm:block" to="/groups">
-            Groups
-          </Link>
-          <Link className="hidden text-slate-300 no-underline hover:text-white md:block" to="/live/new">
-            Live poll
-          </Link>
-          <select
-            aria-label={t("nav.language")}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-white"
-            onChange={(event) => void i18n.changeLanguage(event.target.value)}
-            value={i18n.language}
-          >
+          <select aria-label={t("nav.language")} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-white" onChange={changeLanguage} value={language}>
             {languages.map((language) => (
               <option key={language.value} value={language.value}>
                 {language.label}
               </option>
             ))}
           </select>
-          <Link className="rounded-full bg-blue-600 px-3 py-2 font-bold text-white no-underline hover:bg-blue-500" to="/register">
-            {t("nav.join")}
+        </div>
+        <nav className="flex items-center gap-3 text-sm">
+          <Link className="hidden rounded-full bg-blue-600 px-3 py-2 font-bold text-white no-underline hover:bg-blue-500 sm:block" to="/poll/new">
+            {t("nav.createPoll")}
           </Link>
+          <Link className="hidden text-slate-300 no-underline hover:text-white md:block" to="/live/new">
+            {t("nav.createLivePoll")}
+          </Link>
+          <Link className="hidden text-slate-300 no-underline hover:text-white sm:block" to="/polls">
+            {t("nav.explorePolls")}
+          </Link>
+          {isLoggedIn ? (
+            <div className="relative" onMouseEnter={() => setIsProfileMenuOpen(true)} onMouseLeave={() => setIsProfileMenuOpen(false)}>
+              <button className="rounded-full bg-blue-600 px-3 py-2 font-bold text-white" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} type="button">
+                Elena Rossi
+              </button>
+              {isProfileMenuOpen && (
+                <div className="absolute top-full right-0 z-10 w-36 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-polls">
+                    Polls
+                  </Link>
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/groups">
+                    Groups
+                  </Link>
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/profile">
+                    {t("nav.profile")}
+                  </Link>
+                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/settings">
+                    Settings
+                  </Link>
+                  <button className="w-full rounded-lg px-3 py-2 text-left font-semibold text-red-700 hover:bg-red-50" onClick={logout} type="button">
+                    {t("nav.logout")}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link className="rounded-full border border-slate-600 px-3 py-2 font-bold text-white no-underline hover:border-white" to="/register">
+              {t("nav.register")}
+            </Link>
+          )}
         </nav>
       </div>
     </header>
@@ -225,23 +278,45 @@ const LockBadge = ({ group }: { group: Group }) => (
     <FiLock /> Exclusive to {group.name}
   </span>
 );
+const VotingMethodIcon = ({ votingMethod }: { votingMethod: VotingMethod }) => {
+  const label = votingMethod;
+  return (
+    <details className="group relative shrink-0">
+      <summary aria-label={label} className="list-none rounded-md p-1 text-blue-700 hover:bg-blue-50 [&::-webkit-details-marker]:hidden">
+        {votingMethod === "One choice" && <FiDisc aria-hidden="true" />}
+        {votingMethod === "Multiple choice" && <FiCheckSquare aria-hidden="true" />}
+        {votingMethod === "Ranked choice" && <FiList aria-hidden="true" />}
+      </summary>
+      <span className="absolute top-full right-0 z-10 mt-1 hidden w-max max-w-40 rounded-md bg-slate-950 px-2 py-1 text-center font-semibold text-white text-xs shadow-lg group-open:block md:group-hover:block md:group-open:hidden">
+        {label}
+      </span>
+    </details>
+  );
+};
 const PollCard = ({ poll }: { poll: Poll }) => {
   const group = groupFor(poll.groupId);
+  const turnout = pollTurnout(poll).toFixed(1);
   return (
     <article className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 font-bold text-slate-700 text-xs">{poll.category}</span>
-        <span className="font-bold text-blue-700 text-xs">{poll.votingMethod}</span>
-      </div>
       {group && (
         <div className="mb-3">
           <LockBadge group={group} />
         </div>
       )}
-      <h3 className="font-bold text-lg">{poll.title}</h3>
-      <p className="mt-2 grow text-slate-600 text-sm">{poll.description}</p>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-bold text-lg">{poll.title}</h3>
+        <VotingMethodIcon votingMethod={poll.votingMethod} />
+      </div>
+      <p className="mt-2 text-slate-500 text-xs">
+        Published by{" "}
+        <Link className="font-bold text-blue-700 no-underline" to="/creator/1">
+          {poll.authorName}
+        </Link>
+      </p>
       <div className="mt-5 flex justify-between border-slate-100 border-t pt-4 text-slate-500 text-xs">
-        <span>{poll.votes.toLocaleString()} votes</span>
+        <span>
+          {poll.votes.toLocaleString()} votes · {turnout}% turnout
+        </span>
         <span>Closes in {poll.closes}</span>
       </div>
       <Link className="mt-4 flex items-center justify-between font-bold text-blue-700 text-sm no-underline" to={`/poll/${poll.id}`}>
@@ -299,12 +374,21 @@ const Landing = () => {
 
 const PollList = () => {
   const [query, setQuery] = React.useState("");
-  const visiblePolls = polls.filter((poll) => memberCanAccess(poll) && poll.title.toLowerCase().includes(query.toLowerCase()));
+  const [sort, setSort] = React.useState<PollSort>("Turnout: high to low");
+  const [showMyGroups, setShowMyGroups] = React.useState(false);
+  const matchingPolls = polls.filter((poll) => poll.title.toLowerCase().includes(query.toLowerCase()));
+  const filteredPolls = matchingPolls.filter((poll) => (showMyGroups ? poll.groupId && memberCanAccess(poll) : !poll.groupId));
+  const visiblePolls = [...filteredPolls].sort((firstPoll, secondPoll) => {
+    if (sort === "Turnout: low to high") return pollTurnout(firstPoll) - pollTurnout(secondPoll);
+    if (sort === "Turnout: high to low") return pollTurnout(secondPoll) - pollTurnout(firstPoll);
+    if (sort === "Closing time: soonest") return pollClosingDays(firstPoll) - pollClosingDays(secondPoll);
+    return pollClosingDays(secondPoll) - pollClosingDays(firstPoll);
+  });
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Polls open to you</h1>
-        <Link className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/poll/new">
+        <Link className="hidden items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline sm:inline-flex" to="/poll/new">
           <FiPlus /> Create poll
         </Link>
       </div>
@@ -312,15 +396,24 @@ const PollList = () => {
         <FiSearch className="text-slate-400" />
         <input aria-label="Search polls" className="grow border-0 py-3 outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Search polls" value={query} />
       </label>
-      <div className="mt-3 flex gap-2">
-        <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm" type="button">
-          <FiFilter className="mr-1 inline" /> Eligible for me
-        </button>
-        <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm" type="button">
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <p className="mr-2 text-slate-500 text-sm">{visiblePolls.length} open polls</p>
+        <button
+          aria-pressed={showMyGroups}
+          className={`rounded-full border px-3 py-1.5 text-sm ${showMyGroups ? "border-blue-600 bg-blue-50 font-bold text-blue-800" : "border-slate-300 bg-white"}`}
+          onClick={() => setShowMyGroups(!showMyGroups)}
+          type="button"
+        >
           My groups
         </button>
+        <SelectField
+          className="mt-0 w-auto"
+          label="Sort polls"
+          onChange={(event) => setSort(event.target.value as PollSort)}
+          options={["Turnout: high to low", "Turnout: low to high", "Closing time: soonest", "Closing time: latest"]}
+          value={sort}
+        />
       </div>
-      <p className="mt-6 text-slate-500 text-sm">{visiblePolls.length} open polls</p>
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         {visiblePolls.map((poll) => (
           <PollCard key={poll.id} poll={poll} />
@@ -345,7 +438,7 @@ const CreatePoll = () => {
       <h1 className="mt-5 font-bold text-3xl lg:text-5xl">Create a poll</h1>
       <form className="mt-7 space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
         <fieldset className="space-y-4">
-          <legend className="font-bold text-lg">Poll details</legend>
+          {/*<legend className="font-bold text-lg">Poll details</legend>*/}
           <Field label="Poll name" placeholder="e.g. Q4 strategic priorities" />
           <Field label="Description" placeholder="Essential decision context" textarea />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -354,8 +447,27 @@ const CreatePoll = () => {
           </div>
         </fieldset>
         <fieldset>
-          <legend className="font-bold text-lg">Voting options</legend>
-          <div className="mt-3 space-y-2">
+          {/*<legend className="font-bold text-lg">Voting method</legend>*/}
+          <SelectField
+            label="Voting method"
+            onChange={(event) => setMethod(event.target.value as VotingMethod)}
+            options={["One choice", "Multiple choice", "Ranked choice"]}
+            value={method}
+          />
+          {method === "Ranked choice" && (
+            <SelectField
+              className="mt-2"
+              label="Ranked-choice algorithm"
+              onChange={(event) => setRankedAlgorithm(event.target.value === "Instant runoff (IRV)" ? "irv" : "borda")}
+              options={["Instant runoff (IRV)", "Borda count"]}
+              value={rankedAlgorithm === "irv" ? "Instant runoff (IRV)" : "Borda count"}
+            />
+          )}
+        </fieldset>
+        <fieldset>
+          {/*<legend className="font-bold text-lg">Voting options</legend>*/}
+          <label className="block font-semibold text-sm">Options</label>
+          <div className="mt-2 space-y-2">
             {options.map((option, index) => (
               <label className="flex gap-2" key={`option-${index}`}>
                 <input
@@ -379,7 +491,7 @@ const CreatePoll = () => {
           </div>
           {automaticNoChoice && (
             <div className="mt-2 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-900 text-sm">
-              <FiCheck /> No choice fit for me <span className="ml-auto font-bold text-xs">Automatic</span>
+              <FiCheck /> No suitable option. <span className="ml-auto font-bold text-xs">Automatic</span>
             </div>
           )}
           {options.length < 5 && (
@@ -388,23 +500,9 @@ const CreatePoll = () => {
             </button>
           )}
           <p className="mt-2 text-slate-500 text-xs">One-choice and multiple-choice polls require at least two options.</p>
-          <SelectField
-            label="Voting method"
-            onChange={(event) => setMethod(event.target.value as VotingMethod)}
-            options={["One choice", "Multiple choice", "Ranked choice"]}
-            value={method}
-          />
-          {method === "Ranked choice" && (
-            <SelectField
-              label="Ranked-choice algorithm"
-              onChange={(event) => setRankedAlgorithm(event.target.value === "Instant runoff (IRV)" ? "irv" : "borda")}
-              options={["Instant runoff (IRV)", "Borda count"]}
-              value={rankedAlgorithm === "irv" ? "Instant runoff (IRV)" : "Borda count"}
-            />
-          )}
         </fieldset>
         <fieldset className="space-y-3">
-          <legend className="font-bold text-lg">Access control</legend>
+          {/*<legend className="font-bold text-lg">Access control</legend>*/}
           <SelectField
             label="Who can view and vote"
             onChange={(event) => setGroupId(event.target.value === "Public" ? "Public" : (ownedGroups.find((group) => group.name === event.target.value)?.id ?? "Public"))}
@@ -414,8 +512,8 @@ const CreatePoll = () => {
           <p className="text-slate-500 text-xs">Private polls require an active group membership and all demographic requirements.</p>
         </fieldset>
         <fieldset>
-          <legend className="font-bold text-lg">Eligible voters</legend>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {/*<legend className="font-bold text-lg">Eligible voters</legend>*/}
+          <div className="grid gap-3 sm:grid-cols-2">
             <SelectField label="Gender" options={["Any gender", "Women", "Men"]} />
             <Field label="Minimum income" type="number" />
             <Field label="City or cities" />
@@ -658,7 +756,7 @@ const ResultsPage = () => {
   const { id } = useParams();
   const poll = polls.find((item) => item.id === id) ?? polls[0];
   const group = groupFor(poll.groupId);
-  const abstentionRate = ((results.find((result) => result.label === "No choice fit for me")?.votes ?? 0) / poll.votes) * 100;
+  const abstentionRate = ((results.find((result) => result.label === "No suitable option.")?.votes ?? 0) / poll.votes) * 100;
   if (group && !memberCanAccess(poll)) return <AccessDenied group={group} />;
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
@@ -712,6 +810,117 @@ const LiveQr = () => (
       ))}
     </div>
   </div>
+);
+
+type DemographicRow = { label: string; men: number; women: number };
+type CityRow = { label: string; percentage: number };
+type SplitBarProps = { men: number; women: number };
+type StackedRowsProps = { rows: DemographicRow[] };
+type CityBarsProps = { rows: CityRow[] };
+
+const ageRows: DemographicRow[] = [
+  { label: "14–18", men: 46, women: 54 },
+  { label: "19–24", men: 49, women: 51 },
+  { label: "25–30", men: 44, women: 56 },
+  { label: "31–40", men: 52, women: 48 },
+  { label: "41–50", men: 55, women: 45 },
+  { label: "51–60", men: 47, women: 53 },
+  { label: "60+", men: 42, women: 58 },
+];
+const incomeRows: DemographicRow[] = [
+  { label: "€0–10k", men: 43, women: 57 },
+  { label: "€11–20k", men: 45, women: 55 },
+  { label: "€21–30k", men: 48, women: 52 },
+  { label: "€31–40k", men: 53, women: 47 },
+  { label: "€41–50k", men: 56, women: 44 },
+  { label: "€51–60k", men: 58, women: 42 },
+  { label: "€61–100k", men: 61, women: 39 },
+  { label: "€100k+", men: 64, women: 36 },
+];
+const cityRows: CityRow[] = [
+  { label: "Milan", percentage: 22 },
+  { label: "Rome", percentage: 16 },
+  { label: "Turin", percentage: 12 },
+  { label: "Naples", percentage: 9 },
+  { label: "Bologna", percentage: 7 },
+  { label: "Florence", percentage: 6 },
+  { label: "Genoa", percentage: 5 },
+  { label: "Palermo", percentage: 4 },
+  { label: "Bari", percentage: 3 },
+  { label: "Verona", percentage: 2 },
+  { label: "Other cities", percentage: 14 },
+];
+
+const SplitBar = ({ men, women }: SplitBarProps) => (
+  <div className="flex h-7 overflow-hidden rounded-md text-center font-bold text-[10px] text-slate-900">
+    <span className="flex items-center justify-center bg-sky-300" style={{ width: `${men}%` }}>
+      {men}%
+    </span>
+    <span className="flex items-center justify-center bg-pink-400" style={{ width: `${women}%` }}>
+      {women}%
+    </span>
+  </div>
+);
+
+const StackedRows = ({ rows }: StackedRowsProps) => (
+  <div className="space-y-2">
+    {rows.map((row) => (
+      <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2" key={row.label}>
+        <span className="font-medium text-slate-600 text-xs">{row.label}</span>
+        <SplitBar men={row.men} women={row.women} />
+      </div>
+    ))}
+  </div>
+);
+
+const CityBars = ({ rows }: CityBarsProps) => (
+  <div className="space-y-2">
+    {rows.map((row) => (
+      <div className="grid grid-cols-[4.5rem_1fr_2rem] items-center gap-2" key={row.label}>
+        <span className="truncate font-medium text-slate-600 text-xs">{row.label}</span>
+        <div className="h-5 overflow-hidden rounded-md bg-slate-100">
+          <div className="h-full rounded-md bg-blue-600" style={{ width: `${row.percentage}%` }} />
+        </div>
+        <span className="text-right font-bold text-xs">{row.percentage}%</span>
+      </div>
+    ))}
+  </div>
+);
+
+const LiveDemographicPanel = () => (
+  <details className="mt-4 border-slate-100 border-t pt-4">
+    <summary className="cursor-pointer font-bold text-blue-700 text-sm">Demographic breakdown</summary>
+    <div className="mt-5 space-y-6">
+      <section>
+        <h3 className="font-bold text-sm">Gender</h3>
+        <div className="mt-2">
+          <SplitBar men={48} women={52} />
+        </div>
+        <div className="mt-1 flex justify-between text-slate-500 text-xs">
+          <span>Men</span>
+          <span>Women</span>
+        </div>
+      </section>
+      <section>
+        <h3 className="font-bold text-sm">Age</h3>
+        <div className="mt-2">
+          <StackedRows rows={ageRows} />
+        </div>
+      </section>
+      <section>
+        <h3 className="font-bold text-sm">Income</h3>
+        <div className="mt-2">
+          <StackedRows rows={incomeRows} />
+        </div>
+      </section>
+      <section>
+        <h3 className="font-bold text-sm">Geography</h3>
+        <div className="mt-2">
+          <CityBars rows={cityRows} />
+        </div>
+      </section>
+    </div>
+  </details>
 );
 
 const LivePoll = () => {
@@ -816,24 +1025,7 @@ const LivePoll = () => {
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full bg-blue-600" style={{ width: `${percentage}%` }} />
                 </div>
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-                  <div>
-                    <dt className="text-slate-500">Gender</dt>
-                    <dd className="font-bold">51% women</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Age</dt>
-                    <dd className="font-bold">34% 31–40</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Income</dt>
-                    <dd className="font-bold">39% €31–40k</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Geography</dt>
-                    <dd className="font-bold">62% Milan</dd>
-                  </div>
-                </dl>
+                <LiveDemographicPanel />
               </div>
             ))}
           </div>
@@ -935,81 +1127,58 @@ const LiveVoter = () => {
   );
 };
 
-const Groups = () => (
-  <main className="mx-auto max-w-6xl px-4 py-8 sm:px-7">
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p className="font-bold text-blue-700 text-sm tracking-wider">ORGANISATIONS</p>
-        <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Your groups</h1>
+const Groups = () => {
+  const [groupTab, setGroupTab] = React.useState<"joined" | "managed">("joined");
+  const visibleGroups = groups.filter((group) => (groupTab === "managed" ? group.owner : !group.owner && group.activeMember));
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-7">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-bold text-blue-700 text-sm tracking-wider">ORGANISATIONS</p>
+          <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Your groups</h1>
+        </div>
+        <Link className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/group/new">
+          <FiPlus /> Create group
+        </Link>
       </div>
-      <Link className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/group/new">
-        <FiPlus /> Create group
-      </Link>
-    </div>
-    <section className="mt-7 rounded-2xl border border-blue-200 bg-blue-50 p-5">
-      <p className="font-bold text-blue-950">Free live polls</p>
-      <p className="mt-1 text-blue-900 text-sm">Up to 100 live users. Upgrade to increase the audience and unlock private groups.</p>
-    </section>
-    <section className="mt-7 grid gap-4 lg:grid-cols-3">
-      {[
-        {
-          name: "Small",
-          price: "$9/mo",
-          limit: "100 members · 1,000 live users",
-          description: "For small teams that run internal decisions and live polls.",
-        },
-        {
-          name: "Big",
-          price: "$90/mo",
-          limit: "1,000 members · 10,000 live users",
-          description: "For departments and associations that coordinate member polls and live events.",
-        },
-        {
-          name: "Unlimited",
-          price: "$900/mo",
-          limit: "Unlimited members · unlimited live users",
-          description: "For large organisations with unlimited private groups and live-poll audiences.",
-        },
-      ].map(({ description, limit, name, price }) => (
-        <div className={`rounded-2xl border p-5 ${name === "Big" ? "border-blue-600 bg-[#071a3d] text-white" : "border-slate-200 bg-white"}`} key={name}>
-          <p className="font-bold">{name}</p>
-          <p className="mt-3 font-bold text-3xl">{price}</p>
-          <p className={name === "Big" ? "text-slate-300 text-sm" : "text-slate-500 text-sm"}>{limit}</p>
-          <p className={name === "Big" ? "mt-3 text-slate-300 text-sm" : "mt-3 text-slate-600 text-sm"}>{description}</p>
-          <button className={`mt-5 rounded-full px-4 py-2 font-bold text-sm ${name === "Big" ? "bg-blue-500 text-white" : "bg-slate-950 text-white"}`} type="button">
-            {name === "Big" ? "Current plan" : "Upgrade"}
+      <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+        <div className="flex border-slate-200 border-b">
+          <button
+            className={`px-4 py-2 font-bold text-sm ${groupTab === "joined" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+            onClick={() => setGroupTab("joined")}
+            type="button"
+          >
+            Groups you belong to
+          </button>
+          <button
+            className={`px-4 py-2 font-bold text-sm ${groupTab === "managed" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+            onClick={() => setGroupTab("managed")}
+            type="button"
+          >
+            Groups you manage
           </button>
         </div>
-      ))}
-    </section>
-    <section className="mt-8">
-      <h2 className="font-bold text-2xl">Owned and joined</h2>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        {groups
-          .filter((group) => group.activeMember)
-          .map((group) => (
-            <article className="rounded-2xl border border-slate-200 bg-white p-5" key={group.id}>
-              <div className="flex justify-between gap-3">
-                <div>
-                  <p className="font-bold text-lg">{group.name}</p>
-                  <p className="mt-1 text-slate-600 text-sm">{group.description}</p>
-                </div>
-                <span className="rounded-full bg-blue-50 px-2 py-1 font-bold text-blue-800 text-xs">{group.owner ? "Owned" : "Joined"}</span>
-              </div>
-              <div className="mt-5 flex items-center justify-between border-slate-100 border-t pt-4 text-sm">
-                <span>
-                  {group.members} / {group.limit} members
-                </span>
-                <Link className="font-bold text-blue-700" to={`/group/${group.id}`}>
-                  Manage
-                </Link>
-              </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {visibleGroups.map((group) => (
+            <article className="rounded-xl border border-slate-200 p-5" key={group.id}>
+              <h2 className="font-bold text-lg">{group.name}</h2>
+              <p className="mt-1 text-slate-600 text-sm">{group.description}</p>
+              <p className="mt-4 font-semibold text-sm">
+                {group.members} / {group.limit} members
+              </p>
             </article>
           ))}
-      </div>
-    </section>
-  </main>
-);
+        </div>
+        <div className="mt-8 text-center">
+          <p className="text-slate-600 text-sm">Upgrade to create and manage private groups.</p>
+          <Link className="mt-3 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/profile">
+            Upgrade plan
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+};
 const GroupNew = () => (
   <main className="mx-auto max-w-3xl px-4 py-8 sm:px-7">
     <Link className="font-bold text-slate-500 text-sm" to="/groups">
@@ -1083,27 +1252,213 @@ const GroupDetail = () => {
     </main>
   );
 };
-const Register = () => (
-  <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
-    <h1 className="font-bold text-3xl lg:text-5xl">Join voto</h1>
-    <form className="mt-7 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2">
-      <Field label="First name" />
-      <Field label="Last name" />
-      <Field label="Birth date" type="date" />
-      <SelectField label="Gender" options={["Select gender", "Woman", "Man"]} />
-      <Field label="City" />
-      <Field label="Country" />
-      <Field label="Gross annual income" type="number" />
-      <Field label="Email" type="email" />
-      <div className="sm:col-span-2">
-        <Field label="Password" type="password" />
+const Register = () => {
+  const navigate = useNavigate();
+  return (
+    <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
+      <h1 className="font-bold text-3xl lg:text-5xl">Join voto</h1>
+      <form
+        className="mt-7 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          localStorage.setItem(registrationStorageKey, "true");
+          navigate("/profile");
+        }}
+      >
+        <Field label="First name" />
+        <Field label="Last name" />
+        <Field label="Birth date" type="date" />
+        <SelectField label="Gender" options={["Select gender", "Woman", "Man"]} />
+        <Field label="City" />
+        <Field label="Country" />
+        <Field label="Gross annual income" type="number" />
+        <Field label="Email" type="email" />
+        <div className="sm:col-span-2">
+          <Field label="Password" type="password" />
+        </div>
+        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white sm:col-span-2" type="submit">
+          Create account
+        </button>
+      </form>
+    </main>
+  );
+};
+
+type PlanName = "Free" | "Small" | "Big" | "Unlimited";
+type ProfilePlan = { price: string; groupLimit: string; liveLimit: string };
+
+const profilePlans: Record<PlanName, ProfilePlan> = {
+  Free: { price: "$0/mo", groupLimit: "No private groups", liveLimit: "100 live users" },
+  Small: { price: "$9/mo", groupLimit: "100 members per group", liveLimit: "1,000 live users" },
+  Big: { price: "$90/mo", groupLimit: "1,000 members per group", liveLimit: "10,000 live users" },
+  Unlimited: { price: "$900/mo", groupLimit: "Unlimited group members", liveLimit: "Unlimited live users" },
+};
+
+const Profile = () => {
+  const [plan, setPlan] = React.useState<PlanName>("Free");
+  const currentPlan = profilePlans[plan];
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
+      <h1 className="font-bold text-3xl lg:text-5xl">Profile</h1>
+      <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+        <h2 className="font-bold text-xl">Your information</h2>
+        <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500">First name</dt>
+            <dd className="font-bold">Elena</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Last name</dt>
+            <dd className="font-bold">Rossi</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Birth date</dt>
+            <dd className="font-bold">14 May 1992</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Gender</dt>
+            <dd className="font-bold">Woman</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Gross annual income</dt>
+            <dd className="font-bold">€38,000</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">City and country</dt>
+            <dd className="font-bold">Milan, Italy</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Email</dt>
+            <dd className="font-bold">elena.rossi@example.com</dd>
+          </div>
+        </dl>
+      </section>
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-bold text-xl">Your plan</h2>
+            <h2 className="mt-1 font-bold text-2xl">{plan}</h2>
+          </div>
+          <strong className="text-2xl">{currentPlan.price}</strong>
+        </div>
+        <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+          <p className="rounded-xl bg-slate-100 p-3">{currentPlan.groupLimit}</p>
+          <p className="rounded-xl bg-slate-100 p-3">{currentPlan.liveLimit}</p>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {(Object.keys(profilePlans) as PlanName[]).map((planName) => (
+            <button
+              className="rounded-full border border-slate-300 px-4 py-2 font-bold text-sm disabled:border-blue-600 disabled:bg-blue-50 disabled:text-blue-800"
+              disabled={planName === plan}
+              key={planName}
+              onClick={() => setPlan(planName)}
+              type="button"
+            >
+              {planName === plan ? "Current plan" : `Switch to ${planName}`}
+            </button>
+          ))}
+        </div>
+      </section>
+      <p className="mt-5 text-slate-600 text-sm">
+        Public creator link:{" "}
+        <Link className="font-bold text-blue-700" to="/creator/1">
+          voto.io/creator/1
+        </Link>
+      </p>
+    </main>
+  );
+};
+
+const MyPolls = () => {
+  const [pollTab, setPollTab] = React.useState<"created" | "voted">("created");
+  const visiblePolls =
+    pollTab === "created"
+      ? polls.filter((poll) => poll.id === "board-priorities" || poll.id === "city-green")
+      : polls.filter((poll) => poll.id === "night-buses" || poll.id === "school-meals");
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
+      <h1 className="font-bold text-3xl lg:text-5xl">Your polls</h1>
+      <div className="mt-7 flex border-slate-200 border-b">
+        <button
+          className={`px-4 py-2 font-bold text-sm ${pollTab === "created" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          onClick={() => setPollTab("created")}
+          type="button"
+        >
+          Polls you created
+        </button>
+        <button
+          className={`px-4 py-2 font-bold text-sm ${pollTab === "voted" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          onClick={() => setPollTab("voted")}
+          type="button"
+        >
+          Polls you voted
+        </button>
       </div>
-      <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white sm:col-span-2" type="submit">
-        Create account
-      </button>
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {visiblePolls.map((poll) => (
+          <PollCard key={poll.id} poll={poll} />
+        ))}
+      </div>
+    </main>
+  );
+};
+
+const Settings = () => (
+  <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
+    <h1 className="font-bold text-3xl lg:text-5xl">Settings</h1>
+    <form className="mt-7 space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <section>
+        <h2 className="font-bold text-xl">Email</h2>
+        <Field label="Email" placeholder="elena.rossi@example.com" type="email" />
+        <button className="mt-4 rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
+          Change email
+        </button>
+      </section>
+      <section className="border-slate-200 border-t pt-6">
+        <h2 className="font-bold text-xl">Password</h2>
+        <Field label="Current password" type="password" />
+        <div className="mt-4">
+          <Field label="New password" type="password" />
+        </div>
+        <button className="mt-4 rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
+          Change password
+        </button>
+      </section>
     </form>
   </main>
 );
+
+const Creator = () => {
+  const [pollTab, setPollTab] = React.useState<"open" | "closed">("open");
+  const visiblePolls = polls.filter((poll) => (pollTab === "open" ? memberCanAccess(poll) && poll.id !== "partner-review" : poll.id === "school-meals"));
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
+      <p className="font-bold text-blue-700 text-sm tracking-wider">CREATOR</p>
+      <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Elena R.</h1>
+      <div className="mt-7 flex border-slate-200 border-b">
+        <button
+          className={`px-4 py-2 font-bold text-sm ${pollTab === "open" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          onClick={() => setPollTab("open")}
+          type="button"
+        >
+          Open polls
+        </button>
+        <button
+          className={`px-4 py-2 font-bold text-sm ${pollTab === "closed" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          onClick={() => setPollTab("closed")}
+          type="button"
+        >
+          Closed polls
+        </button>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {visiblePolls.map((poll) => (
+          <PollCard key={poll.id} poll={poll} />
+        ))}
+      </div>
+    </main>
+  );
+};
 
 export const Home = () => {
   const path = useLocation().pathname;
@@ -1118,6 +1473,10 @@ export const Home = () => {
   else if (path === "/group/new") page = <GroupNew />;
   else if (path.startsWith("/group/")) page = <GroupDetail />;
   else if (path === "/register") page = <Register />;
+  else if (path === "/profile") page = <Profile />;
+  else if (path === "/my-polls") page = <MyPolls />;
+  else if (path === "/settings") page = <Settings />;
+  else if (path.startsWith("/creator/")) page = <Creator />;
   else if (isLiveVoter) page = <LiveVoter />;
   else if (path.startsWith("/live/")) page = <LivePoll />;
   return (

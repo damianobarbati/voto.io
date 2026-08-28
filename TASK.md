@@ -115,7 +115,7 @@ Voto.io was created to leverage existing technology to offer a tool that allows 
 Perchè voto.io?
 La democrazia diretta è sempre stata considerata un'utopia logistica, applicabile solo a piccole comunità o a consultazioni rare e costose.  
 Oggi, la tecnologia ha azzerato i costi di coordinamento e le barriere d'accesso, rendendo possibile ciò che fino a poco tempo fa era impensabile.  
-Voto.io nasce per sfruttare la tecnologia esistente per offrire uno strumento che permette a chiunque, dal singolo cittadino fino a un'intera nazione, di prendere decisioni collettive.  
+Voto.io nasce per sfruttare la tecnologia esistente e offrire uno strumento che permette a chiunque, dal singolo cittadino fino a un'intera nazione, di prendere decisioni collettive.  
 
 ## Glossary
 
@@ -195,13 +195,12 @@ The flow is for the creator:
 - a bar displaying the % of voters who have the live poll page opened and voted is shown (real-time updated)
 - a button to close the votation is displayed
 
-When the creator closes the votation, the live poll page is closed and the results are displayed with the following information:
-For each option
-- % of votes
-- breakdown of % gender who voted for it
-- breakdown of % of age who voted for it
-- breakdown of % of income who voted for it
-- breakdown of % of geography who voted for it
+When the creator closes the live votation, the results are displayed with the following information:
+- The demographic breakdown goes inside an expandable panel under each voting option.  
+- For gender, use a single horizontal bar divided into two sections: light blue for men and pink for women, with the percentage written inside each segment.  
+- For age, use a horizontal stacked bar chart. Age groups are ordered from the youngest at the top to the oldest at the bottom. Each bar represents an age group and is split internally into light blue and pink segments withtheir respective percentages.
+- For income, use the same horizontal stacked bar chart. Income brackets are ordered from the lowest income at the top to the highest at the bottom. Each bar is split between light blue and pink with percentage values shown.  
+- For geography, use a simple horizontal bar chart ordered from the city with the most votes at the top down to the lowest. Display only the top ten cities and add a final bar labeled other cities to collect all remaining votes.  
 
 Below the QR code, a number showing the total count of voters who have the live poll page opened is displayed in the form "live / total for the plan".
 When the live users exceed the allowed quota for the creator's plan, a button is displayed to the creator to go to subscriptions page and upgrade his plan.  
@@ -217,6 +216,35 @@ The flow for the voter is:
 If the user joining the live poll is exceeding the allowed quota for the creator's plan, a message is displayed telling the user "Waiting the creator to increase the poll audience..."
 
 UI for the voter is always mobile.
+
+## Profile
+
+If the user is registered and logged-in, the top-right "Register" button is replaced with "Full name".
+
+Hovering or tapping the profile triggers a dropdown with:
+- Polls
+- Groups
+- Profile
+- Settings
+- Logout
+
+Settings page provides the option to change email and/or password.
+
+Profile page provides a form with user information read-only, where nothing can be changed after registration.  
+Below his info, his current active plan with the limits, and the option to downgrade/upgrade his plan to any other one.
+
+The groups page provides two tabs: 
+- the groups he belongs to
+- the groups he manages
+At the center of the tab content, there's the option to upgrade plan if the user is on the free plan.
+
+The groups page provides two tabs:
+- the list of polls the user created
+- the list of polls the user voted
+
+The user has a public link he can share bringing to his creator page.  
+The user's creator page has his last name hidden and replaced with the first letter (e.g., John D.).
+In the creator's page there are 2 main tabs, the open polls (if visible to the user), and the closed polls (if visible to the user). 
 
 ## Technical details
 

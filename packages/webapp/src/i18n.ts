@@ -4,7 +4,17 @@ import { initReactI18next } from "react-i18next";
 const resources = {
   en: {
     translation: {
-      nav: { explore: "Explore", join: "Join voto", language: "Language" },
+      nav: {
+        explore: "Explore",
+        join: "Join voto",
+        language: "Language",
+        createPoll: "Create poll",
+        createLivePoll: "Create live poll",
+        explorePolls: "Explore polls",
+        register: "Register",
+        profile: "Profile",
+        logout: "Log out",
+      },
       language: { en: "English", es: "Español", de: "Deutsch", fr: "Français", it: "Italiano" },
       common: {
         backToPolls: "Back to polls",
@@ -15,7 +25,7 @@ const resources = {
         createPoll: "Create poll",
         filters: "Filters",
         search: "Search polls",
-        noChoice: "No choice fit for me",
+        noChoice: "No suitable option.",
         submitVote: "Submit vote",
         seeResults: "See results",
         publish: "Publish poll",
@@ -171,7 +181,17 @@ const resources = {
   },
   it: {
     translation: {
-      nav: { explore: "Esplora", join: "Unisciti a voto", language: "Lingua" },
+      nav: {
+        explore: "Esplora",
+        join: "Unisciti a voto",
+        language: "Lingua",
+        createPoll: "Crea votazione",
+        createLivePoll: "Crea votazione live",
+        explorePolls: "Esplora le votazioni",
+        register: "Registrati",
+        profile: "Profilo",
+        logout: "Esci",
+      },
       language: { en: "English", es: "Español", de: "Deutsch", fr: "Français", it: "Italiano" },
       common: {
         backToPolls: "Torna ai sondaggi",
@@ -233,7 +253,7 @@ const resources = {
         imagePlaceholder: "Segnaposto anteprima app",
         whyTitle: "Perché voto.io?",
         whyDescription:
-          "La democrazia diretta è sempre stata considerata un'utopia logistica, applicabile solo a piccole comunità o a consultazioni rare e costose. Oggi, la tecnologia ha azzerato i costi di coordinamento e le barriere d'accesso, rendendo possibile ciò che fino a poco tempo fa era impensabile. Voto.io nasce per sfruttare la tecnologia esistente per offrire uno strumento che permette a chiunque, dal singolo cittadino fino a un'intera nazione, di prendere decisioni collettive.",
+          "La democrazia diretta è sempre stata considerata un'utopia logistica, applicabile solo a piccole comunità o a consultazioni rare e costose. Oggi, la tecnologia ha azzerato i costi di coordinamento e le barriere d'accesso, rendendo possibile ciò che fino a poco tempo fa era impensabile. Voto.io nasce per sfruttare la tecnologia esistente ed offrire uno strumento che permette a chiunque, dal singolo cittadino fino a un'intera nazione, di prendere decisioni collettive.",
         primary: "Crea account",
         featured: "Sondaggio attivo",
         activeNow: "ATTIVI ORA",
@@ -338,7 +358,17 @@ const resources = {
   },
   es: {
     translation: {
-      nav: { explore: "Explorar", join: "Únete a voto", language: "Idioma" },
+      nav: {
+        explore: "Explorar",
+        join: "Únete a voto",
+        language: "Idioma",
+        createPoll: "Crear encuesta",
+        createLivePoll: "Crear encuesta en vivo",
+        explorePolls: "Explorar encuestas",
+        register: "Registrarse",
+        profile: "Perfil",
+        logout: "Cerrar sesión",
+      },
       landing: {
         eyebrow: "DECISIONES PÚBLICAS VERIFICADAS",
         title: "Haz que la opinión pública cuente.",
@@ -357,7 +387,17 @@ const resources = {
   },
   de: {
     translation: {
-      nav: { explore: "Entdecken", join: "voto beitreten", language: "Sprache" },
+      nav: {
+        explore: "Entdecken",
+        join: "voto beitreten",
+        language: "Sprache",
+        createPoll: "Umfrage erstellen",
+        createLivePoll: "Live-Umfrage erstellen",
+        explorePolls: "Umfragen entdecken",
+        register: "Registrieren",
+        profile: "Profil",
+        logout: "Abmelden",
+      },
       landing: {
         eyebrow: "BESTÄTIGTE ÖFFENTLICHE ENTSCHEIDUNGEN",
         title: "Lass öffentliche Meinung zählen.",
@@ -376,7 +416,17 @@ const resources = {
   },
   fr: {
     translation: {
-      nav: { explore: "Explorer", join: "Rejoindre voto", language: "Langue" },
+      nav: {
+        explore: "Explorer",
+        join: "Rejoindre voto",
+        language: "Langue",
+        createPoll: "Créer un sondage",
+        createLivePoll: "Créer un sondage en direct",
+        explorePolls: "Explorer les sondages",
+        register: "S’inscrire",
+        profile: "Profil",
+        logout: "Se déconnecter",
+      },
       landing: {
         eyebrow: "DÉCISIONS PUBLIQUES VÉRIFIÉES",
         title: "Faites compter l'avis public.",
