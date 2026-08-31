@@ -1,11 +1,25 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import { HTTPException } from "hono/http-exception";
-import { type User, type UserLoginRequest, type UserLoginResponse, UserLoginResponseSchema, type UserRow } from "types/User.ts";
-import { verifyPassword } from "#api/auth/password.ts";
+import { type User, type UserLoginRequest, type UserLoginResponse, UserLoginResponseSchema, type UserRow, UserSchema } from "types/User.ts";
+import { z } from "zod";
 import ENV from "#api/env.ts";
 import UserRepository from "#api/user/UserRepository.ts";
 
 const INVALID_CREDENTIALS_ERROR = "Invalid email or password";
+const INVALID_TOKEN_ERROR = "Invalid authentication token";
+const AUTHORIZATION_PREFIX = "Bearer ";
+const scryptAsync = promisify(scrypt);
+const passwordKeyLength = 64;
+
+const tokenPayloadSchema = z
+  .object({
+    sub: z.string().min(1),
+    iat: z.number().int().nonnegative(),
+  })
+  .strict();
+
+const tokenHeaderSchema = z.object({ alg: z.literal("HS256"), typ: z.literal("JWT") }).strict();
 
 const toUser = ({ password_hash: _passwordHash, ...user }: UserRow): User => user;
 
@@ -16,14 +30,63 @@ const createToken = ({ id }: User): string => {
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 };
 
+const getUserId = ({ authorization }: { authorization: string }): string => {
+  if (!authorization.startsWith(AUTHORIZATION_PREFIX)) throw new HTTPException(401, { message: INVALID_TOKEN_ERROR });
+
+  const token = authorization.slice(AUTHORIZATION_PREFIX.length);
+  const tokenParts = token.split(".");
+  if (tokenParts.length !== 3) throw new HTTPException(401, { message: INVALID_TOKEN_ERROR });
+  const [encodedHeader, encodedPayload, signature] = tokenParts;
+  if (!encodedHeader || !encodedPayload || !signature) throw new HTTPException(401, { message: INVALID_TOKEN_ERROR });
+
+  const expectedSignature = createHmac("sha256", ENV.JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64url");
+  if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    throw new HTTPException(401, { message: INVALID_TOKEN_ERROR });
+  }
+
+  try {
+    tokenHeaderSchema.parse(JSON.parse(Buffer.from(encodedHeader, "base64url").toString()));
+    return tokenPayloadSchema.parse(JSON.parse(Buffer.from(encodedPayload, "base64url").toString())).sub;
+  } catch {
+    throw new HTTPException(401, { message: INVALID_TOKEN_ERROR });
+  }
+};
+
 export default class AuthService {
   static async login({ email, password }: UserLoginRequest): Promise<UserLoginResponse> {
     const userRow = await UserRepository.findBy({ email });
-    if (!userRow || !(await verifyPassword({ password, passwordHash: userRow.password_hash }))) {
+    const isPasswordValid = userRow && (await AuthService.verifyPassword({ password, passwordHash: userRow.password_hash }));
+    if (!isPasswordValid) {
       throw new HTTPException(401, { message: INVALID_CREDENTIALS_ERROR });
     }
 
     const user = toUser(userRow);
-    return UserLoginResponseSchema.parse({ user, token: createToken(user) });
+    const result = UserLoginResponseSchema.parse(createToken(user));
+    return result;
+  }
+
+  static async me({ authorization }: { authorization: string }): Promise<User> {
+    const id = getUserId({ authorization });
+    const userRow = await UserRepository.findBy({ id });
+    if (!userRow) throw new HTTPException(401, { message: INVALID_TOKEN_ERROR });
+    const result = UserSchema.parse(toUser(userRow));
+    return result;
+  }
+
+  static async hashPassword({ password }: { password: string }): Promise<string> {
+    const salt = randomBytes(16).toString("hex");
+    const hash = (await scryptAsync(password, salt, passwordKeyLength)) as Buffer;
+    const result = `${salt}:${hash.toString("hex")}`;
+    return result;
+  }
+
+  static async verifyPassword({ password, passwordHash }: { password: string; passwordHash: string }): Promise<boolean> {
+    const [salt, storedHash] = passwordHash.split(":");
+    if (!salt || !storedHash) return false;
+
+    const hash = (await scryptAsync(password, salt, passwordKeyLength)) as Buffer;
+    const storedHashBuffer = Buffer.from(storedHash, "hex");
+    const result = storedHashBuffer.length === hash.length && timingSafeEqual(storedHashBuffer, hash);
+    return result;
   }
 }

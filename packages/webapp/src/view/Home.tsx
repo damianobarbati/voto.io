@@ -1471,26 +1471,21 @@ const Checkout = () => {
 
 const Login = () => {
   const navigate = useNavigate();
-  const setUser = store((state) => state.setUser);
   const form = useForm<UserLoginRequest>({ resolver: zodResolver(UserLoginRequestSchema) });
-  const { error, isMutating, trigger } = useSWRMutation(
-    "http://localhost:8080/users/login",
-    async (url: string, { arg }: { arg: UserLoginRequest }): Promise<UserLoginResponse> => {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(arg),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error("Invalid email or password");
-      return UserLoginResponseSchema.parse(body);
-    },
-  );
+  const { error, isMutating, trigger } = useSWRMutation("http://localhost:8080/login", async (url: string, { arg }: { arg: UserLoginRequest }): Promise<UserLoginResponse> => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(arg),
+    });
+    if (!response.ok) throw new Error("Invalid email or password");
+    const body = await response.json();
+    return UserLoginResponseSchema.parse(body);
+  });
 
   const login = async (values: UserLoginRequest) => {
     try {
-      const { token, user } = await trigger(values);
-      setUser(user);
+      const token = await trigger(values);
       localStorage.setItem(jwtStorageKey, token);
       localStorage.setItem(registrationStorageKey, "true");
       navigate("/my-profile");
