@@ -70,12 +70,6 @@ create table "plans" (
 );
 create trigger "plans_set_updated_at" before update on "plans" for each row execute procedure set_updated_at();
 
-insert into "plans" ("id", "name", "monthly_price", "group_member_limit", "live_voter_limit") values
-  ('free', 'Free', 0, 0, 100),
-  ('small', 'Small', 9, 100, 1000),
-  ('big', 'Big', 90, 1000, 10000),
-  ('unlimited', 'Unlimited', 900, null, null);
-
 create table "subscriptions" (
   "id" text primary key default next_id() not null,
   "created_at" timestamptz default now()::timestamptz(0) not null,

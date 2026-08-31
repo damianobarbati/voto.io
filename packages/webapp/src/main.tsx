@@ -18,6 +18,10 @@ const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },
       {
+        path: "/terms",
+        lazy: async () => ({ Component: (await import("#webapp/view/Terms.tsx")).Terms }),
+      },
+      {
         path: "/poll/list",
         lazy: async () => ({ Component: (await import("#webapp/view/Home.tsx")).Home }),
       },

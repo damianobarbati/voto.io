@@ -1,5 +1,7 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import cx from "clsx-tw";
 import React from "react";
+import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   FiArrowDown,
@@ -22,7 +24,11 @@ import {
 } from "react-icons/fi";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import useSWRMutation from "swr/mutation";
+import { type UserLoginRequest, UserLoginRequestSchema, type UserLoginResponse, UserLoginResponseSchema } from "types/User.ts";
+import { type PlanName, PurchasePlans, profilePlans } from "#webapp/components/PurchasePlans.tsx";
 import { i18n, languageStorageKey } from "#webapp/i18n.ts";
+import { jwtStorageKey, store } from "#webapp/store.ts";
 
 type VotingMethod = "One choice" | "Multiple choice" | "Ranked choice";
 type RankedAlgorithm = "irv" | "borda";
@@ -226,6 +232,8 @@ const Header = () => {
     setLanguage(selectedLanguage);
   };
   const logout = () => {
+    store.getState().logout();
+    localStorage.removeItem(jwtStorageKey);
     localStorage.removeItem(registrationStorageKey);
     navigate("/");
   };
@@ -388,6 +396,14 @@ const Landing = () => {
             ))}
         </div>
       </main>
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
+        <div className="max-w-2xl">
+          <p className="font-bold text-blue-700 text-sm tracking-wider">PLANS</p>
+          <h2 className="mt-1 font-bold text-3xl lg:text-4xl">Choose a plan that grows with your decisions.</h2>
+          <p className="mt-3 text-slate-600">Start with the level of capacity your community needs. You can change your plan at any time.</p>
+        </div>
+        <PurchasePlans className="mt-7" />
+      </section>
     </>
   );
 };
@@ -1306,15 +1322,6 @@ const Register = () => {
   );
 };
 
-type PlanName = "Free" | "Small" | "Big" | "Unlimited";
-type ProfilePlan = { price: string; groupLimit: string; liveLimit: string };
-
-const profilePlans: Record<PlanName, ProfilePlan> = {
-  Free: { price: "$0/mo", groupLimit: "No private groups", liveLimit: "100 live users" },
-  Small: { price: "$9/mo", groupLimit: "100 members per group", liveLimit: "1,000 live users" },
-  Big: { price: "$90/mo", groupLimit: "1,000 members per group", liveLimit: "10,000 live users" },
-  Unlimited: { price: "$900/mo", groupLimit: "Unlimited group members", liveLimit: "Unlimited live users" },
-};
 const planFromSearch = (search: string) => {
   const plan = new URLSearchParams(search).get("plan");
   return (Object.keys(profilePlans) as PlanName[]).find((planName) => planName.toLowerCase() === plan);
@@ -1426,22 +1433,7 @@ const Subscription = () => {
 const Plans = () => (
   <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
     <h1 className="font-bold text-3xl lg:text-5xl">Plans</h1>
-    <div className="mt-7 grid gap-4 sm:grid-cols-3">
-      {(["Small", "Big", "Unlimited"] as PlanName[]).map((planName) => {
-        const plan = profilePlans[planName];
-        return (
-          <article className="rounded-2xl border border-slate-200 bg-white p-5" key={planName}>
-            <h2 className="font-bold text-2xl">{planName}</h2>
-            <p className="mt-2 font-bold text-xl">{plan.price}</p>
-            <p className="mt-5 text-slate-600 text-sm">{plan.groupLimit}</p>
-            <p className="mt-2 text-slate-600 text-sm">{plan.liveLimit}</p>
-            <Link className="mt-6 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to={`/checkout?plan=${planName.toLowerCase()}`}>
-              Select plan
-            </Link>
-          </article>
-        );
-      })}
-    </div>
+    <PurchasePlans className="mt-7" />
   </main>
 );
 
@@ -1479,19 +1471,53 @@ const Checkout = () => {
 
 const Login = () => {
   const navigate = useNavigate();
+  const setUser = store((state) => state.setUser);
+  const form = useForm<UserLoginRequest>({ resolver: zodResolver(UserLoginRequestSchema) });
+  const { error, isMutating, trigger } = useSWRMutation(
+    "http://localhost:8080/users/login",
+    async (url: string, { arg }: { arg: UserLoginRequest }): Promise<UserLoginResponse> => {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(arg),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error("Invalid email or password");
+      return UserLoginResponseSchema.parse(body);
+    },
+  );
+
+  const login = async (values: UserLoginRequest) => {
+    try {
+      const { token, user } = await trigger(values);
+      setUser(user);
+      localStorage.setItem(jwtStorageKey, token);
+      localStorage.setItem(registrationStorageKey, "true");
+      navigate("/my-profile");
+    } catch {}
+  };
+
   return (
     <main className="mx-auto max-w-md px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Log in</h1>
-      <form
-        className="mt-7 space-y-5 rounded-2xl border border-slate-200 bg-white p-5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          navigate("/my-profile");
-        }}
-      >
-        <Field label="Email" type="email" />
-        <Field label="Password" type="password" />
-        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+      <form className="mt-7 space-y-5 rounded-2xl border border-slate-200 bg-white p-5" onSubmit={form.handleSubmit(login)}>
+        <label className="block font-semibold text-sm">
+          Email
+          <input autoComplete="email" className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
+          {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          Password
+          <input
+            autoComplete="current-password"
+            className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            type="password"
+            {...form.register("password")}
+          />
+          {form.formState.errors.password && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.password.message}</span>}
+        </label>
+        {error && <p className="text-red-600 text-sm">Invalid email or password</p>}
+        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isMutating} type="submit">
           Log in
         </button>
       </form>

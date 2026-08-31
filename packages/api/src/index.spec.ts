@@ -35,4 +35,15 @@ describe("Router", () => {
       expect(body).toEqual(payload);
     });
   });
+
+  describe("POST /users/login", () => {
+    it("should fail with an invalid payload", async () => {
+      const response = await app.request("/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "john.doe@gmail.com" }),
+      });
+      expect(response.status).toEqual(400);
+    });
+  });
 });

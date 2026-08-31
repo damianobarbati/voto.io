@@ -2,6 +2,8 @@ import type { User } from "types/User.ts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+export const jwtStorageKey = "voto-jwt";
+
 type AppState = {
   user: User | null;
   setUser: (user: User | null) => void;

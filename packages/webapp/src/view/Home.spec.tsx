@@ -1,10 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { i18n, languageStorageKey } from "#webapp/i18n.ts";
 import { Home } from "./Home.tsx";
+import { Terms } from "./Terms.tsx";
 
 describe("Home", () => {
+  it("renders the terms of use", () => {
+    const router = createMemoryRouter([{ path: "/terms", Component: Terms }], { initialEntries: ["/terms"] });
+    render(<RouterProvider router={router} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Terms of Use" })).toBeDefined();
+    expect(screen.getByRole("heading", { level: 2, name: "3. Rules for polls and groups" })).toBeDefined();
+  });
+
   it("renders the landing heading", () => {
     const router = createMemoryRouter([{ path: "/", Component: Home }], { initialEntries: ["/"] });
     render(<RouterProvider router={router} />);
@@ -12,6 +20,8 @@ describe("Home", () => {
     expect(screen.getByText("Why voto.io?")).toBeDefined();
     expect(screen.getAllByText("1,248 votes · 53.3% turnout").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Elena Rossi").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 2, name: "Choose a plan that grows with your decisions." })).toBeDefined();
+    expect(screen.getAllByRole("link", { name: "Select plan" })).toHaveLength(3);
   });
 
   it("shows a flag before each language name", () => {
@@ -163,6 +173,15 @@ describe("Home", () => {
     fireEvent.click(screen.getByRole("button", { name: "Complete purchase" }));
     expect(screen.getByRole("heading", { level: 1, name: "Subscription" })).toBeDefined();
     expect(screen.getByText("Valid until 28 September 2026")).toBeDefined();
+  });
+
+  it("shows all paid plans", () => {
+    const router = createMemoryRouter([{ path: "/plans", Component: Home }], { initialEntries: ["/plans"] });
+    render(<RouterProvider router={router} />);
+    const plans = screen.getAllByRole("main").at(-1);
+    if (!plans) throw new Error("Plans page is missing");
+    expect(within(plans).getByRole("heading", { level: 1, name: "Plans" })).toBeDefined();
+    expect(within(plans).getAllByRole("link", { name: "Select plan" })).toHaveLength(3);
   });
 
   it("shows the user poll tabs on the dedicated page", () => {
