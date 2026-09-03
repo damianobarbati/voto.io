@@ -32,6 +32,22 @@ export const UserLoginRequestSchema = z
   .strict();
 export type UserLoginRequest = z.output<typeof UserLoginRequestSchema>;
 
+export const UserRegisterRequestSchema = z
+  .object({
+    first_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().min(1).max(100),
+    birth_date: z.iso.date(),
+    gender: z.enum(["m", "f"]),
+    income: z.number().nonnegative(),
+    city: z.string().trim().min(1).max(100),
+    country: z.string().trim().length(2).toUpperCase(),
+    language: z.enum(["en", "es", "de", "fr", "it"]),
+    email: z.email(),
+    password: z.string().min(1),
+  })
+  .strict();
+export type UserRegisterRequest = z.output<typeof UserRegisterRequestSchema>;
+
 export const UserMeRequestSchema = z
   .object({
     authorization: z.string().min(1),

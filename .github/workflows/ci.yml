@@ -62,6 +62,9 @@ jobs:
       - name: Test package "api"
         run: pnpm -F api test
 
+      - name: Test package "webapp"
+        run: pnpm -F webappp test
+
   build-and-deploy:
     timeout-minutes: 5
     runs-on: ubuntu-24.04

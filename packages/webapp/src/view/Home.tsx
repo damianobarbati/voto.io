@@ -24,11 +24,23 @@ import {
 } from "react-icons/fi";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
-import { type UserLoginRequest, UserLoginRequestSchema, type UserLoginResponse, UserLoginResponseSchema } from "types/User.ts";
+import { type Poll as ApiPoll, PollSchema } from "types/Poll.ts";
+import {
+  type User,
+  type UserLoginRequest,
+  UserLoginRequestSchema,
+  type UserLoginResponse,
+  UserLoginResponseSchema,
+  type UserRegisterRequest,
+  UserRegisterRequestSchema,
+  UserSchema,
+} from "types/User.ts";
 import { type PlanName, PurchasePlans, profilePlans } from "#webapp/components/PurchasePlans.tsx";
 import { i18n, languageStorageKey } from "#webapp/i18n.ts";
 import { jwtStorageKey, store } from "#webapp/store.ts";
+import { Spinner } from "#webapp/ui/Spinner.tsx";
 
 type VotingMethod = "One choice" | "Multiple choice" | "Ranked choice";
 type RankedAlgorithm = "irv" | "borda";
@@ -44,6 +56,7 @@ type Poll = {
   eligible: number;
   authorName: string;
   closes: string;
+  closesAt: string;
   rankedAlgorithm?: RankedAlgorithm;
   groupId?: string;
 };
@@ -60,88 +73,6 @@ const invitations: { email: string; status: InvitationStatus }[] = [
   { email: "luca.bianchi@example.com", status: "Pending" },
   { email: "marco.verdi@example.com", status: "Rejected" },
   { email: "sofia.gallo@example.com", status: "Accepted" },
-];
-const polls: Poll[] = [
-  {
-    id: "city-green",
-    title: "More green space in the city",
-    description: "Choose the next public-space investment.",
-    votingMethod: "One choice",
-    options: ["Plant 1,000 new trees", "Create community gardens", "Build a small urban forest", "No suitable option."],
-    votes: 1248,
-    eligible: 2340,
-    authorName: "Elena Rossi",
-    closes: "2 days",
-  },
-  {
-    id: "night-buses",
-    title: "Night buses on weekends",
-    description: "Rank the late-night transport priorities.",
-    votingMethod: "Ranked choice",
-    options: ["Extend route N6", "Add an airport connection", "Increase frequency on route N15"],
-    votes: 681,
-    eligible: 1120,
-    authorName: "Elena Rossi",
-    closes: "9 days",
-    rankedAlgorithm: "irv",
-  },
-  {
-    id: "school-meals",
-    title: "Free school meals",
-    description: "Select every service that should be included.",
-    votingMethod: "Multiple choice",
-    options: ["Breakfast", "Lunch", "After-school snacks", "No suitable option."],
-    votes: 442,
-    eligible: 890,
-    authorName: "Elena Rossi",
-    closes: "12 days",
-  },
-  {
-    id: "board-priorities",
-    title: "Q4 strategic priorities",
-    description: "Choose the initiative to lead the next quarter.",
-    votingMethod: "One choice",
-    options: ["Market expansion", "Product reliability", "Enterprise sales", "No suitable option."],
-    votes: 31,
-    eligible: 46,
-    authorName: "Elena Rossi",
-    closes: "3 days",
-    groupId: "northstar",
-  },
-  {
-    id: "partner-review",
-    title: "Partner programme review",
-    description: "Private partner council decision.",
-    votingMethod: "Multiple choice",
-    options: ["Renew criteria", "Change criteria", "Pause the programme", "No suitable option."],
-    votes: 48,
-    eligible: 86,
-    authorName: "Elena Rossi",
-    closes: "6 days",
-    groupId: "vendors",
-  },
-  {
-    id: "neighbourhood-library",
-    title: "Neighbourhood library opening hours",
-    description: "Choose the best schedule for the local library.",
-    votingMethod: "One choice",
-    options: ["Open earlier", "Open later", "Open on Sundays", "No suitable option."],
-    votes: 916,
-    eligible: 1580,
-    authorName: "Elena Rossi",
-    closes: "5 days",
-  },
-  {
-    id: "community-sports",
-    title: "Community sports programme",
-    description: "Select the activities to fund next season.",
-    votingMethod: "Multiple choice",
-    options: ["Youth football", "Swimming lessons", "Senior fitness", "No suitable option."],
-    votes: 287,
-    eligible: 760,
-    authorName: "Elena Rossi",
-    closes: "15 days",
-  },
 ];
 const results = [
   { label: "Plant 1,000 new trees", votes: 704, percentage: 56 },
@@ -194,8 +125,43 @@ const registrationStorageKey = "voto.registered";
 
 const groupFor = (groupId: string | undefined) => groups.find((group) => group.id === groupId);
 const memberCanAccess = (poll: Poll) => !poll.groupId || groupFor(poll.groupId)?.activeMember === true;
-const pollTurnout = (poll: Poll) => (poll.votes / poll.eligible) * 100;
-const pollClosingDays = (poll: Poll) => Number.parseInt(poll.closes, 10);
+const pollTurnout = (poll: Poll) => (poll.eligible === 0 ? 0 : (poll.votes / poll.eligible) * 100);
+const pollClosingDays = (poll: Poll) => new Date(poll.closesAt).getTime();
+const apiUrl = "http://localhost:8080";
+const pollVotingMethod = (type: ApiPoll["type"]): VotingMethod => {
+  if (type === "single_choice") return "One choice";
+  if (type === "multiple_choice") return "Multiple choice";
+  return "Ranked choice";
+};
+const toPoll = (poll: ApiPoll): Poll => ({
+  id: poll.id,
+  title: poll.name,
+  description: poll.description,
+  votingMethod: pollVotingMethod(poll.type),
+  options: poll.options.map((option) => option.name),
+  votes: 0,
+  eligible: 0,
+  authorName: poll.creator_id,
+  closes: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(new Date(poll.closes_at)),
+  closesAt: poll.closes_at,
+  rankedAlgorithm: poll.ranked_method ?? undefined,
+  groupId: poll.group_id ?? undefined,
+});
+const getPolls = async (): Promise<Poll[]> => {
+  const response = await fetch(`${apiUrl}/polls`);
+  if (!response.ok) throw new Error("Unable to retrieve polls");
+  const body = await response.json();
+  const result = PollSchema.array().parse(body).map(toPoll);
+  return result;
+};
+const usePolls = () => useSWR(`${apiUrl}/polls`, getPolls);
+const getUser = async ({ token }: { token: string }) => {
+  const response = await fetch("http://localhost:8080/me", { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error("Unable to retrieve the user");
+  const body = await response.json();
+  const result = UserSchema.parse(body);
+  return result;
+};
 const Field = ({ label, placeholder, textarea = false, type = "text" }: { label: string; placeholder?: string; textarea?: boolean; type?: string }) => (
   <label className="block font-semibold text-sm">
     {label}
@@ -219,12 +185,16 @@ const SelectField = ({ className = "", label, onChange, options, value }: Select
   </label>
 );
 
-const Header = () => {
+type HeaderProps = { user: User | null };
+
+const Header = ({ user }: HeaderProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [language, setLanguage] = React.useState(i18n.resolvedLanguage ?? i18n.language);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
-  const isLoggedIn = localStorage.getItem(registrationStorageKey) === "true";
+  const [currentUser, setCurrentUser] = React.useState(user);
+  const isLoggedIn = currentUser !== null;
+  React.useEffect(() => setCurrentUser(user), [user]);
   const changeLanguage: React.ChangeEventHandler<HTMLSelectElement> = async (event) => {
     const selectedLanguage = event.target.value;
     await i18n.changeLanguage(selectedLanguage);
@@ -232,6 +202,7 @@ const Header = () => {
     setLanguage(selectedLanguage);
   };
   const logout = () => {
+    setCurrentUser(null);
     store.getState().logout();
     localStorage.removeItem(jwtStorageKey);
     localStorage.removeItem(registrationStorageKey);
@@ -265,24 +236,24 @@ const Header = () => {
           {isLoggedIn ? (
             <div className="relative" onMouseEnter={() => setIsProfileMenuOpen(true)} onMouseLeave={() => setIsProfileMenuOpen(false)}>
               <button className="rounded-full bg-blue-600 px-3 py-2 font-bold text-white" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} type="button">
-                Elena Rossi
+                {currentUser.name}
               </button>
               {isProfileMenuOpen && (
                 <div className="absolute top-full right-0 z-10 w-36 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
                   <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-polls">
-                    Polls
+                    {t("nav.polls")}
                   </Link>
                   <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-groups">
-                    Groups
+                    {t("nav.groups")}
                   </Link>
                   <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-subscription">
-                    Subscription
+                    {t("nav.subscription")}
                   </Link>
                   <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-profile">
                     {t("nav.profile")}
                   </Link>
                   <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-settings">
-                    Settings
+                    {t("nav.settings")}
                   </Link>
                   <button className="w-full rounded-lg px-3 py-2 text-left font-semibold text-red-700 hover:bg-red-50" onClick={logout} type="button">
                     {t("nav.logout")}
@@ -291,8 +262,8 @@ const Header = () => {
               )}
             </div>
           ) : (
-            <Link className="rounded-full border border-slate-600 px-3 py-2 font-bold text-white no-underline hover:border-white" to="/register">
-              {t("nav.register")}
+            <Link className="rounded-full border border-slate-600 px-3 py-2 font-bold text-white no-underline hover:border-white" to="/login">
+              {t("nav.login")}
             </Link>
           )}
         </nav>
@@ -354,6 +325,7 @@ const PollCard = ({ poll }: { poll: Poll }) => {
 };
 const Landing = () => {
   const { t } = useTranslation();
+  const { data: polls = [], isLoading } = usePolls();
   return (
     <>
       <section className="bg-[#071a3d] px-6 py-6 text-white sm:px-7 sm:py-12">
@@ -387,6 +359,7 @@ const Landing = () => {
           </Link>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {isLoading && <Spinner />}
           {[...polls]
             .filter(memberCanAccess)
             .sort((firstPoll, secondPoll) => secondPoll.votes - firstPoll.votes)
@@ -409,6 +382,7 @@ const Landing = () => {
 };
 
 const PollList = () => {
+  const { data: polls = [], isLoading } = usePolls();
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<PollSort>("Turnout: high to low");
   const [showMyGroups, setShowMyGroups] = React.useState(false);
@@ -453,6 +427,7 @@ const PollList = () => {
         />
       </div>
       <div className="mt-3 grid gap-4 md:grid-cols-2">
+        {isLoading && <Spinner />}
         {visiblePolls.map((poll) => (
           <PollCard key={poll.id} poll={poll} />
         ))}
@@ -580,7 +555,10 @@ const AccessDenied = ({ group }: { group: Group }) => (
 );
 const PollDetail = () => {
   const { id } = useParams();
-  const poll = polls.find((item) => item.id === id) ?? polls[0];
+  const { data: polls } = usePolls();
+  if (!polls) return <Spinner />;
+  const poll = polls.find((item) => item.id === id);
+  if (!poll) return <main className="mx-auto max-w-4xl px-4 py-8 sm:px-7">Poll not found.</main>;
   const group = groupFor(poll.groupId);
   const [single, setSingle] = React.useState(poll.options[0]);
   const [many, setMany] = React.useState<string[]>([]);
@@ -792,7 +770,10 @@ const RankedChoiceResults = ({ algorithm }: { algorithm: RankedAlgorithm }) => {
 };
 const ResultsPage = () => {
   const { id } = useParams();
-  const poll = polls.find((item) => item.id === id) ?? polls[0];
+  const { data: polls } = usePolls();
+  if (!polls) return <Spinner />;
+  const poll = polls.find((item) => item.id === id);
+  if (!poll) return <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">Poll not found.</main>;
   const group = groupFor(poll.groupId);
   const abstentionRate = ((results.find((result) => result.label === "No suitable option.")?.votes ?? 0) / poll.votes) * 100;
   if (group && !memberCanAccess(poll)) return <AccessDenied group={group} />;
@@ -1292,31 +1273,114 @@ const GroupDetail = () => {
 };
 const Register = () => {
   const navigate = useNavigate();
+  const setUser = store.getState().setUser;
+  const form = useForm<UserRegisterRequest>({
+    defaultValues: { language: (i18n.resolvedLanguage ?? "en") as UserRegisterRequest["language"] },
+    resolver: zodResolver(UserRegisterRequestSchema),
+  });
+  const { error, isMutating, trigger } = useSWRMutation(
+    "http://localhost:8080/register",
+    async (url: string, { arg }: { arg: UserRegisterRequest }): Promise<UserLoginResponse> => {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(arg),
+      });
+      if (!response.ok) throw new Error("Unable to create account");
+      const body = await response.json();
+      return UserLoginResponseSchema.parse(body);
+    },
+  );
+
+  const registerUser = async (values: UserRegisterRequest) => {
+    try {
+      const token = await trigger(values);
+      const user = await getUser({ token });
+      setUser(user);
+      localStorage.setItem(jwtStorageKey, token);
+      localStorage.setItem(registrationStorageKey, "true");
+      navigate("/my-profile");
+    } catch {}
+  };
+
   return (
     <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Join voto</h1>
-      <form
-        className="mt-7 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          localStorage.setItem(registrationStorageKey, "true");
-          navigate("/my-profile");
-        }}
-      >
-        <Field label="First name" />
-        <Field label="Last name" />
-        <Field label="Birth date" type="date" />
-        <SelectField label="Gender" options={["Select gender", "Woman", "Man"]} />
-        <Field label="City" />
-        <Field label="Country" />
-        <Field label="Gross annual income" type="number" />
-        <Field label="Email" type="email" />
-        <div className="sm:col-span-2">
-          <Field label="Password" type="password" />
-        </div>
-        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white sm:col-span-2" type="submit">
+      <form className="mt-7 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2" onSubmit={form.handleSubmit(registerUser)}>
+        <label className="block font-semibold text-sm">
+          First name
+          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("first_name")} />
+          {form.formState.errors.first_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.first_name.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          Last name
+          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("last_name")} />
+          {form.formState.errors.last_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.last_name.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          Birth date
+          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" type="date" {...form.register("birth_date")} />
+          {form.formState.errors.birth_date && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.birth_date.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          Gender
+          <select className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("gender")}>
+            <option value="">Select gender</option>
+            <option value="f">Woman</option>
+            <option value="m">Man</option>
+          </select>
+          {form.formState.errors.gender && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.gender.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          City
+          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("city")} />
+          {form.formState.errors.city && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.city.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          Country
+          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" maxLength={2} {...form.register("country")} />
+          {form.formState.errors.country && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.country.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          Gross annual income
+          <input
+            className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            min="0"
+            type="number"
+            {...form.register("income", { valueAsNumber: true })}
+          />
+          {form.formState.errors.income && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.income.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm">
+          Email
+          <input autoComplete="email" className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
+          {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
+        </label>
+        <label className="block font-semibold text-sm sm:col-span-2">
+          Password
+          <input
+            autoComplete="new-password"
+            className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            type="password"
+            {...form.register("password")}
+          />
+          {form.formState.errors.password && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.password.message}</span>}
+        </label>
+        <input type="hidden" {...form.register("language")} />
+        {error && <p className="text-red-600 text-sm sm:col-span-2">Unable to create account</p>}
+        <button
+          className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:col-span-2"
+          disabled={isMutating}
+          type="submit"
+        >
           Create account
         </button>
+        <p className="text-center text-slate-600 text-sm sm:col-span-2">
+          Already registered?{" "}
+          <Link className="font-bold text-blue-700" to="/login">
+            Log in
+          </Link>
+        </p>
       </form>
     </main>
   );
@@ -1328,6 +1392,15 @@ const planFromSearch = (search: string) => {
 };
 
 const Profile = () => {
+  const user = store.getState().user;
+  const firstName = user?.first_name ?? user?.name ?? "Elena";
+  const lastName = user?.last_name ?? "Rossi";
+  const birthDate = user ? new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long", year: "numeric" }).format(new Date(user.birth_date)) : "14 May 1992";
+  const gender = user?.gender === "f" ? "Woman" : user?.gender === "m" ? "Man" : "Not specified";
+  const income =
+    user?.income === null || user?.income === undefined ? "Not specified" : new Intl.NumberFormat(i18n.language, { style: "currency", currency: "EUR" }).format(user.income);
+  const cityAndCountry = user?.city && user.country ? `${user.city}, ${user.country}` : "Milan, Italy";
+  const email = user?.email ?? "elena.rossi@example.com";
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Profile</h1>
@@ -1336,31 +1409,31 @@ const Profile = () => {
         <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-slate-500">First name</dt>
-            <dd className="font-bold">Elena</dd>
+            <dd className="font-bold">{firstName}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Last name</dt>
-            <dd className="font-bold">Rossi</dd>
+            <dd className="font-bold">{lastName}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Birth date</dt>
-            <dd className="font-bold">14 May 1992</dd>
+            <dd className="font-bold">{birthDate}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Gender</dt>
-            <dd className="font-bold">Woman</dd>
+            <dd className="font-bold">{gender}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Gross annual income</dt>
-            <dd className="font-bold">€38,000</dd>
+            <dd className="font-bold">{income}</dd>
           </div>
           <div>
             <dt className="text-slate-500">City and country</dt>
-            <dd className="font-bold">Milan, Italy</dd>
+            <dd className="font-bold">{cityAndCountry}</dd>
           </div>
           <div>
             <dt className="text-slate-500">Email</dt>
-            <dd className="font-bold">elena.rossi@example.com</dd>
+            <dd className="font-bold">{email}</dd>
           </div>
         </dl>
       </section>
@@ -1471,6 +1544,7 @@ const Checkout = () => {
 
 const Login = () => {
   const navigate = useNavigate();
+  const setUser = store.getState().setUser;
   const form = useForm<UserLoginRequest>({ resolver: zodResolver(UserLoginRequestSchema) });
   const { error, isMutating, trigger } = useSWRMutation("http://localhost:8080/login", async (url: string, { arg }: { arg: UserLoginRequest }): Promise<UserLoginResponse> => {
     const response = await fetch(url, {
@@ -1486,6 +1560,8 @@ const Login = () => {
   const login = async (values: UserLoginRequest) => {
     try {
       const token = await trigger(values);
+      const user = await getUser({ token });
+      setUser(user);
       localStorage.setItem(jwtStorageKey, token);
       localStorage.setItem(registrationStorageKey, "true");
       navigate("/my-profile");
@@ -1521,6 +1597,7 @@ const Login = () => {
 };
 
 const MyPolls = () => {
+  const { data: polls = [] } = usePolls();
   const [pollTab, setPollTab] = React.useState<"created" | "voted">("created");
   const visiblePolls =
     pollTab === "created"
@@ -1580,6 +1657,7 @@ const Settings = () => (
 );
 
 const Creator = () => {
+  const { data: polls = [] } = usePolls();
   const [pollTab, setPollTab] = React.useState<"open" | "closed">("open");
   const visiblePolls = polls.filter((poll) => (pollTab === "open" ? memberCanAccess(poll) && poll.id !== "partner-review" : poll.id === "school-meals"));
   return (
@@ -1613,6 +1691,7 @@ const Creator = () => {
 
 export const Home = () => {
   const path = useLocation().pathname;
+  const user = store((state) => state.user);
   const isLivePoll = path.startsWith("/live-poll/");
   const isLiveVoter = path.endsWith("/vote") && isLivePoll;
   let page = <Landing />;
@@ -1636,7 +1715,7 @@ export const Home = () => {
   else if (isLivePoll) page = <LivePoll />;
   return (
     <>
-      {!isLivePoll && <Header />}
+      {!isLivePoll && <Header user={user} />}
       {page}
     </>
   );

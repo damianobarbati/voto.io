@@ -6,7 +6,7 @@ import { mutate, SWRConfig } from "swr";
 import { Spinner } from "#webapp/ui/Spinner.tsx";
 import "#webapp/i18n.ts";
 
-const API_URL = "http://localhost:8080"; // tofix
+const API_URL = "http://localhost:8080";
 preconnect(API_URL, { crossOrigin: "anonymous" });
 
 const router = createBrowserRouter([

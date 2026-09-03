@@ -1,13 +1,14 @@
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { HTTPException } from "hono/http-exception";
-import { type User, type UserLoginRequest, type UserLoginResponse, UserLoginResponseSchema, type UserRow, UserSchema } from "types/User.ts";
+import { type User, type UserLoginRequest, type UserLoginResponse, UserLoginResponseSchema, type UserRegisterRequest, type UserRow, UserSchema } from "types/User.ts";
 import { z } from "zod";
 import ENV from "#api/env.ts";
 import UserRepository from "#api/user/UserRepository.ts";
 
 const INVALID_CREDENTIALS_ERROR = "Invalid email or password";
 const INVALID_TOKEN_ERROR = "Invalid authentication token";
+const EMAIL_ALREADY_REGISTERED_ERROR = "Email is already registered";
 const AUTHORIZATION_PREFIX = "Bearer ";
 const scryptAsync = promisify(scrypt);
 const passwordKeyLength = 64;
@@ -62,6 +63,28 @@ export default class AuthService {
 
     const user = toUser(userRow);
     const result = UserLoginResponseSchema.parse(createToken(user));
+    return result;
+  }
+
+  static async register({ first_name, last_name, birth_date, gender, income, city, country, language, email, password }: UserRegisterRequest): Promise<UserLoginResponse> {
+    const userExists = await UserRepository.exists({ email });
+    if (userExists) throw new HTTPException(409, { message: EMAIL_ALREADY_REGISTERED_ERROR });
+
+    const password_hash = await AuthService.hashPassword({ password });
+    const userRow = await UserRepository.createRaw({
+      first_name,
+      last_name,
+      birth_date: `${birth_date}T00:00:00.000Z`,
+      gender,
+      income,
+      city,
+      country,
+      language,
+      email,
+      password_hash,
+      name: `${first_name} ${last_name}`,
+    });
+    const result = UserLoginResponseSchema.parse(createToken(toUser(userRow)));
     return result;
   }
 

@@ -12,7 +12,12 @@ const resources = {
         createLivePoll: "Create live poll",
         explorePolls: "Explore polls",
         register: "Register",
+        login: "Log in",
         profile: "Profile",
+        polls: "Polls",
+        groups: "Groups",
+        subscription: "Subscription",
+        settings: "Settings",
         logout: "Log out",
       },
       language: { en: "English", es: "Español", de: "Deutsch", fr: "Français", it: "Italiano" },
@@ -189,7 +194,12 @@ const resources = {
         createLivePoll: "Crea votazione live",
         explorePolls: "Esplora le votazioni",
         register: "Registrati",
+        login: "Accedi",
         profile: "Profilo",
+        polls: "Sondaggi",
+        groups: "Gruppi",
+        subscription: "Abbonamento",
+        settings: "Impostazioni",
         logout: "Esci",
       },
       language: { en: "English", es: "Español", de: "Deutsch", fr: "Français", it: "Italiano" },
@@ -366,7 +376,12 @@ const resources = {
         createLivePoll: "Crear encuesta en vivo",
         explorePolls: "Explorar encuestas",
         register: "Registrarse",
+        login: "Iniciar sesión",
         profile: "Perfil",
+        polls: "Encuestas",
+        groups: "Grupos",
+        subscription: "Suscripción",
+        settings: "Configuración",
         logout: "Cerrar sesión",
       },
       landing: {
@@ -395,7 +410,12 @@ const resources = {
         createLivePoll: "Live-Umfrage erstellen",
         explorePolls: "Umfragen entdecken",
         register: "Registrieren",
+        login: "Anmelden",
         profile: "Profil",
+        polls: "Umfragen",
+        groups: "Gruppen",
+        subscription: "Abonnement",
+        settings: "Einstellungen",
         logout: "Abmelden",
       },
       landing: {
@@ -424,7 +444,12 @@ const resources = {
         createLivePoll: "Créer un sondage en direct",
         explorePolls: "Explorer les sondages",
         register: "S’inscrire",
+        login: "Se connecter",
         profile: "Profil",
+        polls: "Sondages",
+        groups: "Groupes",
+        subscription: "Abonnement",
+        settings: "Paramètres",
         logout: "Se déconnecter",
       },
       landing: {
@@ -449,7 +474,7 @@ const supportedLanguages = ["en", "es", "de", "fr", "it"];
 const languageStorageKey = "voto.language";
 const savedLanguage = typeof localStorage === "undefined" ? null : localStorage.getItem(languageStorageKey);
 const browserLanguage = typeof navigator === "undefined" ? "en" : navigator.language.toLowerCase().slice(0, 2);
-const language = supportedLanguages.includes(savedLanguage ?? "") ? savedLanguage : supportedLanguages.includes(browserLanguage) ? browserLanguage : "en";
+const language = supportedLanguages.includes(savedLanguage ?? "") ? (savedLanguage ?? "en") : supportedLanguages.includes(browserLanguage) ? browserLanguage : "en";
 
 void i18n.use(initReactI18next).init({
   resources,

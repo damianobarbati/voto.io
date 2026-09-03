@@ -19,6 +19,7 @@
     "@hono/node-server": "^2.1.1",
     "@vitest/coverage-v8": "^4.1.11",
     "debug": "^4.4.3",
+    "envk": "^4.0.5",
     "hono": "^4.13.5",
     "ioredis": "^6.0.0",
     "knex": "^3.3.0",

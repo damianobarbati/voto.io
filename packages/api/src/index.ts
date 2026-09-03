@@ -6,7 +6,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { prettyJSON } from "hono/pretty-json";
 import { trimTrailingSlash } from "hono/trailing-slash";
-import { registerDocsRoute } from "nano-fw/docs/index.ts";
+import { errorHandler, registerDocsRoute } from "nano-fw/docs/index.ts";
 import { logger } from "#api/middleware/logger.ts";
 import { transaction } from "#api/middleware/transaction.ts";
 import { router } from "./routes.ts";
@@ -21,7 +21,8 @@ app.use("*", logger());
 app.onError((error, c) => {
   c.error = error;
   if (error instanceof HTTPException) return error.getResponse();
-  return c.text("Internal Server Error", 500);
+  const result = errorHandler(error, c);
+  return result;
 });
 
 // app routes
@@ -35,7 +36,7 @@ app.get("/healthcheck", (ctx) => {
 
 // serve api reference at /docs (markdowns in docs-assets)
 const docsAssets = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../docs-assets");
-registerDocsRoute(app, "/docs", docsAssets);
+registerDocsRoute(app, "/", docsAssets);
 
 const is_main = import.meta.url === new URL(`file://${process.argv[1]}`).href;
 if (is_main) serve({ fetch: app.fetch, port: 8080 }, () => console.log("Listening on 8080"));

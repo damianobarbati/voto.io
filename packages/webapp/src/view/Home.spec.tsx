@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { i18n, languageStorageKey } from "#webapp/i18n.ts";
+import { jwtStorageKey, store } from "#webapp/store.ts";
 import { Home } from "./Home.tsx";
 import { Terms } from "./Terms.tsx";
 
@@ -41,6 +42,34 @@ describe("Home", () => {
     expect((await screen.findAllByRole("heading", { level: 1, name: "Potere alla tua scelta." })).length).toBeGreaterThan(0);
     expect(localStorage.getItem(languageStorageKey)).toBe("it");
     await i18n.changeLanguage("en");
+  });
+
+  it("clears the JWT and shows the login action after logout", async () => {
+    store.setState({
+      user: {
+        id: "1",
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        email: "elena.rossi@example.com",
+        name: "Elena Rossi",
+        first_name: "Elena",
+        last_name: "Rossi",
+        birth_date: "1992-05-14T00:00:00.000Z",
+        gender: "f",
+        income: 38000,
+        city: "Milan",
+        country: "IT",
+        language: "en",
+      },
+    });
+    localStorage.setItem(jwtStorageKey, "test-jwt");
+    const router = createMemoryRouter([{ path: "/", Component: Home }], { initialEntries: ["/"] });
+    const { container } = render(<RouterProvider router={router} />);
+    const app = within(container);
+    fireEvent.click(app.getByRole("button", { name: "Elena Rossi" }));
+    fireEvent.click(app.getByRole("button", { name: "Log out" }));
+    expect(localStorage.getItem(jwtStorageKey)).toBeNull();
+    await waitFor(() => expect(app.getByRole("link", { name: "Log in" }).getAttribute("href")).toBe("/login"));
   });
 
   it("reorders ranked choices when one is dropped on another", () => {
