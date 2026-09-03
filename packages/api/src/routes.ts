@@ -2,7 +2,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { registerRoute } from "nano-fw/docs/index.ts";
 import { PollCreateRequestSchema, PollListRequestSchema, PollResultsSchema, PollSchema, PollVoteRequestSchema } from "types/Poll.ts";
-import { UserLoginRequestSchema, UserLoginResponseSchema, UserMeRequestSchema, UserRegisterRequestSchema, UserSchema } from "types/User.ts";
+import { UserEmailUpdateRequestSchema, UserLoginRequestSchema, UserLoginResponseSchema, UserMeRequestSchema, UserPasswordUpdateRequestSchema, UserRegisterRequestSchema, UserSchema } from "types/User.ts";
 import { z } from "zod";
 import AuthService from "#api/auth/AuthService.ts";
 import PollService from "#api/poll/PollService.ts";
@@ -22,6 +22,8 @@ const authMiddleware: MiddlewareHandler = async (c, next) => {
 export const router = new Hono();
 
 const PingRequestSchema = z.record(z.string(), z.unknown());
+const UserEmailUpdateBodySchema = UserEmailUpdateRequestSchema.omit({ authorization: true });
+const UserPasswordUpdateBodySchema = UserPasswordUpdateRequestSchema.omit({ authorization: true });
 
 registerRoute(router, {
   method: "post",
@@ -35,6 +37,9 @@ registerRoute(router, {
     return result;
   },
 });
+
+registerRoute(router, { method: "put", path: "/me/email", requestSchema: UserEmailUpdateBodySchema, responseSchema: UserSchema, meta: { section: "Users", description: "Change email.", visibility: "private" }, middlewares: [loggerMiddleware], handler: (params, context) => AuthService.changeEmail({ ...params, authorization: context.req.header("Authorization") ?? "" }) });
+registerRoute(router, { method: "put", path: "/me/password", requestSchema: UserPasswordUpdateBodySchema, responseSchema: z.null(), meta: { section: "Users", description: "Change password.", visibility: "private" }, middlewares: [loggerMiddleware], handler: async (params, context) => { await AuthService.changePassword({ ...params, authorization: context.req.header("Authorization") ?? "" }); return null; } });
 
 registerRoute(router, {
   method: "get",

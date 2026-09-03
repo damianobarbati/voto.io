@@ -11,6 +11,7 @@ import {
   FiCheck,
   FiCheckSquare,
   FiClock,
+  FiCopy,
   FiDisc,
   FiImage,
   FiList,
@@ -985,16 +986,23 @@ const LivePollDeviceGate = ({ message }: { message: string }) => (
 );
 
 const LivePoll = () => {
+  const { id } = useParams();
   const viewportWidth = useViewportWidth();
   const [status, setStatus] = React.useState<"setup" | "open" | "closed">("setup");
   const [question, setQuestion] = React.useState("Which policy should open the forum?");
   const [options, setOptions] = React.useState(["Housing access", "Local transport", "Climate action"]);
+  const [isLinkCopied, setIsLinkCopied] = React.useState(false);
   const liveAudienceLimit = 100;
   const viewers = status === "setup" ? 27 : status === "open" ? 184 : 213;
   const voters = status === "setup" ? 0 : status === "open" ? 131 : 187;
   const overAudienceLimit = viewers > liveAudienceLimit;
   const addOption = () => setOptions([...options, ""]);
   const updateOption = ({ index, value }: { index: number; value: string }) => setOptions(options.map((option, optionIndex) => (optionIndex === index ? value : option)));
+  const copyVoterLink = async () => {
+    const voterLink = `${window.location.origin}/live-poll/${id}/vote`;
+    await navigator.clipboard.writeText(voterLink);
+    setIsLinkCopied(true);
+  };
   if (viewportWidth < desktopMinimumWidth) return <LivePollDeviceGate message="Live poll creation works only on a computer with a screen at least 1280px wide." />;
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-7">
@@ -1008,6 +1016,10 @@ const LivePoll = () => {
           <p className="mt-2 font-bold">
             {viewers} / {liveAudienceLimit} live users
           </p>
+          <button className="mt-2 inline-flex items-center gap-1 font-bold text-blue-700" onClick={copyVoterLink} type="button">
+            {isLinkCopied ? <FiCheck /> : <FiCopy />}
+            {isLinkCopied ? "Link copied" : "Copy link"}
+          </button>
         </div>
       </div>
       {status === "setup" && (

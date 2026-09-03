@@ -69,7 +69,13 @@ jobs:
         run: pnpm -F api test
 
       - name: Test package "webapp"
-        run: pnpm -F webappp test
+        run: pnpm -F webapp test
+
+      - name: E2E testing
+        run: pnpm -F e2e test
+
+      - name: Load testing
+        run: pnpm -F e2e test:load-scenarios
 
   build-and-deploy:
     timeout-minutes: 5

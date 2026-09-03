@@ -1,0 +1,41 @@
+config:
+  payload:
+    name: "users"
+    path: "../users.csv"
+    fields:
+      - "email"
+      - "password"
+
+scenarios:
+  - name: "User main flow"
+
+    flow:
+      - get:
+          url: "/auth/me"
+          headers:
+            Authorization: "{{ token }}"
+          expect:
+            - statusCode: 200
+
+      - post:
+          url: "/poll/list"
+          headers:
+            Authorization: "{{ token }}"
+            Content-Type: "application/json"
+          body: '{"interval": "1w"}'
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$[0].id"
+              as: pollId
+              strict: false
+
+      - think: 1
+
+      - post:
+          url: "/poll/{{ pollId }}"
+          headers:
+            Authorization: "{{ token }}"
+            Content-Type: "application/json"
+          expect:
+            - statusCode: 200

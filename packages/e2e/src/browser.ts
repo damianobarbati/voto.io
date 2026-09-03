@@ -1,6 +1,7 @@
 import { chromium, type Browser, type Page } from "playwright";
 
 const headed = process.env.VOTO_E2E_HEADED === "1";
+export const keepBrowserOpen = process.env.VOTO_E2E_KEEP_BROWSER_OPEN === "1";
 
 export const openBrowser = async (): Promise<{ browser: Browser; page: Page }> => {
   const browser = await chromium.launch({ channel: "chromium", headless: !headed, slowMo: headed ? 500 : 0 });
@@ -11,4 +12,8 @@ export const openBrowser = async (): Promise<{ browser: Browser; page: Page }> =
 
 export const type = async ({ page, selector, value }: { page: Page; selector: string; value: string }): Promise<void> => {
   await page.locator(selector).pressSequentially(value, { delay: headed ? 50 : 0 });
+};
+
+export const pause = async ({ page }: { page: Page }): Promise<void> => {
+  if (keepBrowserOpen) await page.pause();
 };

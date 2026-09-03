@@ -13,7 +13,7 @@ npm install -g corepack
 corepack enable # package manager from package.json
 corepack install # package manager from package.json
 pnpm install # install deps
-export $(grep -v '^#' .env | xargs) # load env vars
+export $(grep -v '^#' .env | xargs) # load-scenarios env vars
 pnpm env:down # remove docker containers
 pnpm env:up # start docker containers
 pnpm -F api db:migrate # run migrations
@@ -26,9 +26,10 @@ pnpm -F api start:dev
 pnpm -F webapp build:dev
 ```
 
-Testing:
+Test:
 ```sh
-pnpm -r test
+pnpm -F api test
+pnpm -F webapp test
 ```
 
 Linting and typechecking:
@@ -41,3 +42,17 @@ To run with https locally:
 ```sh
 npx ngrok start --all --config ngrok.yml --authtoken <authtoken>
 ```
+
+## NFRs
+
+Run e2e testing:
+```sh
+pnpm -F e2e test
+```
+
+Run load testing:
+```sh
+pnpm -F api test:load-scenarios
+```
+
+You can prefix with `DEBUG=http` to log every HTTP request being issued.
