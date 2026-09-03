@@ -1,7 +1,7 @@
 # voto.io
 
 Make your voice heard.  
-Check it out [here](https://votoio.duckdns.org).  
+Soon (but not yet) available [here](https://votoio.duckdns.org).  
 
 ## Development
 
