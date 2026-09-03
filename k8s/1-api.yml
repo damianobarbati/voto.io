@@ -98,10 +98,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - api.voto.app
+        - api.votoio.duckdns.org
       secretName: voto-api-tls
   rules:
-    - host: api.voto.app
+    - host: api.votoio.duckdns.org
       http:
         paths:
           - path: /

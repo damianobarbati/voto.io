@@ -76,10 +76,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - voto.app
+        - votoio.duckdns.org
       secretName: voto-webapp-tls
   rules:
-    - host: voto.app
+    - host: votoio.duckdns.org
       http:
         paths:
           - path: /
