@@ -1,16 +1,29 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { streamSSE } from "hono/streaming";
 import { registerRoute } from "nano-fw/docs/index.ts";
-import { PollCreateRequestSchema, PollListRequestSchema, PollResultsSchema, PollSchema, PollVoteRequestSchema } from "types/Poll.ts";
-import { UserLoginRequestSchema, UserLoginResponseSchema, UserMeRequestSchema, UserRegisterRequestSchema, UserSchema } from "types/User.ts";
+import {
+  LivePollAttendeeRequestSchema,
+  LivePollAttendeeSchema,
+  LivePollCreateRequestSchema,
+  PollCreateRequestSchema,
+  PollListRequestSchema,
+  PollResultsSchema,
+  PollSchema,
+  PollVoteRequestSchema,
+} from "types/Poll.ts";
+import {
+  UserEmailUpdateRequestSchema,
+  UserLoginRequestSchema,
+  UserLoginResponseSchema,
+  UserMeRequestSchema,
+  UserPasswordUpdateRequestSchema,
+  UserRegisterRequestSchema,
+  UserSchema,
+} from "types/User.ts";
 import { z } from "zod";
 import AuthService from "#api/auth/AuthService.ts";
 import PollService from "#api/poll/PollService.ts";
-
-const loggerMiddleware: MiddlewareHandler = async (c, next) => {
-  console.log(`[${c.req.method}] ${c.req.url}`);
-  await next();
-};
 
 const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authorization = c.req.header("Authorization");
@@ -22,6 +35,8 @@ const authMiddleware: MiddlewareHandler = async (c, next) => {
 export const router = new Hono();
 
 const PingRequestSchema = z.record(z.string(), z.unknown());
+const UserEmailUpdateBodySchema = UserEmailUpdateRequestSchema.omit({ authorization: true });
+const UserPasswordUpdateBodySchema = UserPasswordUpdateRequestSchema.omit({ authorization: true });
 
 registerRoute(router, {
   method: "post",
@@ -29,10 +44,32 @@ registerRoute(router, {
   requestSchema: PingRequestSchema,
   responseSchema: PingRequestSchema,
   meta: { section: "System", description: "Echo a JSON payload." },
-  middlewares: [loggerMiddleware],
+  middlewares: [],
   handler: (params) => {
     const result = params;
     return result;
+  },
+});
+
+registerRoute(router, {
+  method: "put",
+  path: "/me/email",
+  requestSchema: UserEmailUpdateBodySchema,
+  responseSchema: UserSchema,
+  meta: { section: "Users", description: "Change email.", visibility: "private" },
+  middlewares: [],
+  handler: (params, context) => AuthService.changeEmail({ ...params, authorization: context.req.header("Authorization") ?? "" }),
+});
+registerRoute(router, {
+  method: "put",
+  path: "/me/password",
+  requestSchema: UserPasswordUpdateBodySchema,
+  responseSchema: z.null(),
+  meta: { section: "Users", description: "Change password.", visibility: "private" },
+  middlewares: [],
+  handler: async (params, context) => {
+    await AuthService.changePassword({ ...params, authorization: context.req.header("Authorization") ?? "" });
+    return null;
   },
 });
 
@@ -42,8 +79,20 @@ registerRoute(router, {
   requestSchema: PollListRequestSchema,
   responseSchema: PollSchema.array(),
   meta: { section: "Polls", description: "List polls." },
-  middlewares: [loggerMiddleware],
+  middlewares: [],
   handler: () => PollService.list(),
+});
+
+const PollIdRequestSchema = z.object({ id: z.string().min(1) }).strict();
+
+registerRoute(router, {
+  method: "get",
+  path: "/polls/:id",
+  requestSchema: PollIdRequestSchema,
+  responseSchema: PollSchema,
+  meta: { section: "Polls", description: "Get poll." },
+  middlewares: [],
+  handler: ({ id }) => PollService.get({ pollId: id }),
 });
 
 registerRoute(router, {
@@ -52,7 +101,7 @@ registerRoute(router, {
   requestSchema: PollCreateRequestSchema,
   responseSchema: PollSchema,
   meta: { section: "Polls", description: "Create a poll.", visibility: "private" },
-  middlewares: [loggerMiddleware],
+  middlewares: [],
   handler: async (params, context) => {
     const authorization = context.req.header("Authorization");
     if (!authorization) throw new HTTPException(401, { message: "Unauthorized" });
@@ -62,8 +111,8 @@ registerRoute(router, {
   },
 });
 
-const PollIdRequestSchema = z.object({ id: z.string().min(1) }).strict();
 const PollVoteRouteRequestSchema = PollVoteRequestSchema.extend({ id: z.string().min(1) }).strict();
+const LivePollVoteRequestSchema = PollVoteRequestSchema.extend({ id: z.string().min(1) }).strict();
 
 registerRoute(router, {
   method: "post",
@@ -71,7 +120,7 @@ registerRoute(router, {
   requestSchema: PollVoteRouteRequestSchema,
   responseSchema: z.null(),
   meta: { section: "Polls", description: "Submit a poll ballot.", visibility: "private" },
-  middlewares: [loggerMiddleware],
+  middlewares: [],
   handler: async ({ id, ...ballot }, context) => {
     const authorization = context.req.header("Authorization");
     if (!authorization) throw new HTTPException(401, { message: "Unauthorized" });
@@ -82,12 +131,71 @@ registerRoute(router, {
 });
 
 registerRoute(router, {
+  method: "post",
+  path: "/live-polls",
+  requestSchema: LivePollCreateRequestSchema,
+  responseSchema: PollSchema,
+  meta: { section: "Live polls", description: "Create live poll.", visibility: "private" },
+  middlewares: [],
+  handler: async (params, context) => {
+    const authorization = context.req.header("Authorization");
+    if (!authorization) throw new HTTPException(401, { message: "Unauthorized" });
+    const user = await AuthService.me({ authorization });
+    return await PollService.createLive({ creatorId: user.id, poll: params });
+  },
+});
+registerRoute(router, {
+  method: "post",
+  path: "/live-polls/:id/open",
+  requestSchema: PollIdRequestSchema,
+  responseSchema: PollSchema,
+  meta: { section: "Live polls", description: "Open live poll.", visibility: "private" },
+  middlewares: [],
+  handler: async ({ id }, context) => {
+    const authorization = context.req.header("Authorization");
+    if (!authorization) throw new HTTPException(401, { message: "Unauthorized" });
+    const user = await AuthService.me({ authorization });
+    return await PollService.openLive({ creatorId: user.id, pollId: id });
+  },
+});
+registerRoute(router, {
+  method: "post",
+  path: "/live-polls/:id/attendees",
+  requestSchema: LivePollAttendeeRequestSchema.extend({ id: z.string().min(1) }).strict(),
+  responseSchema: LivePollAttendeeSchema,
+  meta: { section: "Live polls", description: "Join live poll." },
+  middlewares: [],
+  handler: ({ id, token }) => PollService.joinLive({ pollId: id, token }),
+});
+registerRoute(router, {
+  method: "post",
+  path: "/live-polls/:id/votes",
+  requestSchema: LivePollVoteRequestSchema,
+  responseSchema: z.null(),
+  meta: { section: "Live polls", description: "Vote in live poll." },
+  middlewares: [],
+  handler: async ({ id, ...ballot }, context) => {
+    const attendeeToken = context.req.header("x-live-attendee-token");
+    if (!attendeeToken) throw new HTTPException(401, { message: "Unauthorized" });
+    await PollService.voteLive({ pollId: id, attendeeToken, ballot });
+    return null;
+  },
+});
+router.get("/live-polls/:id/events", async (context) => {
+  const poll = await PollService.get({ pollId: context.req.param("id") });
+  return streamSSE(context, async (stream) => {
+    await stream.writeSSE({ event: "poll", data: JSON.stringify(poll) });
+    await stream.sleep(60_000);
+  });
+});
+
+registerRoute(router, {
   method: "get",
   path: "/polls/:id/results",
   requestSchema: PollIdRequestSchema,
   responseSchema: PollResultsSchema,
   meta: { section: "Polls", description: "Get poll results." },
-  middlewares: [loggerMiddleware],
+  middlewares: [],
   handler: (params) => PollService.results({ pollId: params.id }),
 });
 
@@ -97,7 +205,7 @@ registerRoute(router, {
   requestSchema: UserRegisterRequestSchema,
   responseSchema: UserLoginResponseSchema,
   meta: { section: "Users", description: "Register a user." },
-  middlewares: [loggerMiddleware],
+  middlewares: [],
   handler: (params) => AuthService.register(params),
 });
 
@@ -108,7 +216,7 @@ registerRoute(router, {
   requestSchema: UserLoginRequestSchema,
   responseSchema: UserLoginResponseSchema,
   meta: { section: "Users", description: "Login with credentials." },
-  middlewares: [loggerMiddleware],
+  middlewares: [],
   handler: (params) => AuthService.login(params),
 });
 
@@ -119,6 +227,6 @@ registerRoute(router, {
   requestSchema: UserMeRequestSchema,
   responseSchema: UserSchema,
   meta: { section: "Users", description: "Get the authenticated user." },
-  middlewares: [loggerMiddleware, authMiddleware],
+  middlewares: [authMiddleware],
   handler: (params) => AuthService.me(params),
 });

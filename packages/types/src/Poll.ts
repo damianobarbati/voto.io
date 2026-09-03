@@ -90,3 +90,12 @@ export const PollResultsSchema = z
   })
   .strict();
 export type PollResults = z.output<typeof PollResultsSchema>;
+
+export const LivePollCreateRequestSchema = z.object({ name: z.string().trim().min(1).max(200), options: z.array(z.string().trim().min(1).max(500)).min(2).max(5) }).strict();
+export type LivePollCreateRequest = z.output<typeof LivePollCreateRequestSchema>;
+
+export const LivePollAttendeeRequestSchema = z.object({ token: z.uuid().optional() }).strict();
+export type LivePollAttendeeRequest = z.output<typeof LivePollAttendeeRequestSchema>;
+
+export const LivePollAttendeeSchema = z.object({ id: z.string(), token: z.uuid(), poll_id: z.string() }).strict();
+export type LivePollAttendee = z.output<typeof LivePollAttendeeSchema>;

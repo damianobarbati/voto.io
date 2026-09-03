@@ -57,3 +57,9 @@ export type UserMeRequest = z.output<typeof UserMeRequestSchema>;
 
 export const UserLoginResponseSchema = z.string().min(1);
 export type UserLoginResponse = z.output<typeof UserLoginResponseSchema>;
+
+export const UserEmailUpdateRequestSchema = z.object({ authorization: z.string().min(1), email: z.email() }).strict();
+export type UserEmailUpdateRequest = z.output<typeof UserEmailUpdateRequestSchema>;
+
+export const UserPasswordUpdateRequestSchema = z.object({ authorization: z.string().min(1), current_password: z.string().min(1), password: z.string().min(1) }).strict();
+export type UserPasswordUpdateRequest = z.output<typeof UserPasswordUpdateRequestSchema>;

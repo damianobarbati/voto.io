@@ -1,5 +1,15 @@
 import { HTTPException } from "hono/http-exception";
-import { type Poll, type PollCreateRequest, type PollResults, PollResultsSchema, type PollRow, PollSchema, type PollVoteRequest } from "types/Poll.ts";
+import {
+  type LivePollAttendee,
+  type LivePollCreateRequest,
+  type Poll,
+  type PollCreateRequest,
+  type PollResults,
+  PollResultsSchema,
+  type PollRow,
+  PollSchema,
+  type PollVoteRequest,
+} from "types/Poll.ts";
 import type { UserRow } from "types/User.ts";
 import PollOptionRepository from "#api/poll/PollOptionRepository.ts";
 import PollRepository from "#api/poll/PollRepository.ts";
@@ -29,6 +39,72 @@ const hasMatchingDemographics = ({ poll, user }: { poll: PollRow; user: UserRow 
 };
 
 export default class PollService {
+  static async createLive({ creatorId, poll }: { creatorId: string; poll: LivePollCreateRequest }): Promise<Poll> {
+    const now = new Date();
+    const result = await PollService.create({
+      creatorId,
+      poll: {
+        ...poll,
+        description: "",
+        opens_at: new Date(now.getTime() + 86_400_000).toISOString(),
+        closes_at: new Date(now.getTime() + 7 * 86_400_000).toISOString(),
+        type: "single_choice",
+        ranked_method: null,
+        gender_restriction: null,
+        age_min: null,
+        age_max: null,
+        gross_income_min: null,
+        gross_income_max: null,
+        cities: [],
+        countries: [],
+        group_id: null,
+        is_live: true,
+      },
+    });
+    return result;
+  }
+
+  static async openLive({ creatorId, pollId }: { creatorId: string; pollId: string }): Promise<Poll> {
+    const poll = await PollRepository.findBy({ id: pollId, creator_id: creatorId }, true);
+    if (!poll || !poll.is_live) throw new HTTPException(404, { message: POLL_NOT_FOUND_ERROR });
+    await database("polls")
+      .where({ id: pollId })
+      .update({ opens_at: new Date().toISOString(), closes_at: new Date(Date.now() + 3_600_000).toISOString() });
+    const result = await PollService.get({ pollId });
+    return result;
+  }
+
+  static async joinLive({ pollId, token }: { pollId: string; token?: string }): Promise<LivePollAttendee> {
+    const poll = await PollRepository.findBy({ id: pollId }, true);
+    if (!poll || !poll.is_live) throw new HTTPException(404, { message: POLL_NOT_FOUND_ERROR });
+    const existing = token ? await database("live_poll_attendees").where({ poll_id: pollId, token }).first() : undefined;
+    if (existing) {
+      await database("live_poll_attendees").where({ id: existing.id }).update({ last_seen_at: new Date().toISOString() });
+      const result = { id: existing.id, token: existing.token, poll_id: pollId };
+      return result;
+    }
+    const [attendee] = await database("live_poll_attendees").insert({ poll_id: pollId }).returning(["id", "token", "poll_id"]);
+    const result = attendee as LivePollAttendee;
+    return result;
+  }
+
+  static async voteLive({ pollId, attendeeToken, ballot }: { pollId: string; attendeeToken: string; ballot: PollVoteRequest }): Promise<void> {
+    const attendee = await database("live_poll_attendees").where({ poll_id: pollId, token: attendeeToken }).first();
+    if (!attendee) throw new HTTPException(401, { message: POLL_ACCESS_DENIED_ERROR });
+    const poll = await PollRepository.findBy({ id: pollId }, true);
+    if (!poll || !poll.is_live || new Date(poll.opens_at) > new Date() || poll.closed_at) throw new HTTPException(422, { message: POLL_NOT_OPEN_ERROR });
+    const [vote] = await database("poll_votes").insert({ poll_id: pollId, live_poll_attendee_id: attendee.id }).returning("*");
+    await database("poll_vote_options").insert(ballot.option_ids.map((option_id) => ({ vote_id: vote.id, poll_id: pollId, option_id, rank: 1 })));
+  }
+
+  static async get({ pollId }: { pollId: string }): Promise<Poll> {
+    const poll = await PollRepository.findBy({ id: pollId }, true);
+    if (!poll) throw new HTTPException(404, { message: POLL_NOT_FOUND_ERROR });
+    const options = await PollOptionRepository.getem({ poll_id: pollId }, true);
+    const result = PollSchema.parse({ ...poll, options });
+    return result;
+  }
+
   static async list(): Promise<Poll[]> {
     const pollRows = await PollRepository.getem({}, true);
     const optionRows = await PollOptionRepository.getem({}, true);

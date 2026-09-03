@@ -69,7 +69,21 @@ jobs:
         run: pnpm -F api test
 
       - name: Test package "webapp"
-        run: pnpm -F webappp test
+        run: pnpm -F webapp test
+
+      - name: E2E testing
+        run: |
+          pnpm -F e2e exec playwright install chromium
+
+          # start api service
+          pnpm -F api start:dev &
+          timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:8080/healthcheck); do printf .; sleep 1; done'
+
+          # start webapp service
+          pnpm -F webapp build:dev &
+          timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:3000); do printf .; sleep 1; done'
+          
+          pnpm -F e2e test
 
   build-and-deploy:
     timeout-minutes: 5
@@ -104,4 +118,3 @@ jobs:
         run: |
           docker tag webapp $DOCKERHUB_USERNAME/voto-webapp
           docker push $DOCKERHUB_USERNAME/voto-webapp
-

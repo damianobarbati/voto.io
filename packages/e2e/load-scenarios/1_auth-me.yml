@@ -1,0 +1,54 @@
+config:
+  payload:
+    name: "users"
+    path: "../users.csv"
+    delimiter: ";"
+    fields:
+      - "email"
+      - "password"
+
+scenarios:
+  - name: "Login and get current user"
+
+    flow:
+      - post:
+          url: "/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - regexp: '"([^\"]+)"'
+              as: "token"
+              group: 1
+          expect:
+            - statusCode: 200
+
+      - think: 1
+
+      - get:
+          url: "/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+      - think: 1
+
+      - get:
+          url: "/polls"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          capture:
+            - json: "$[0].id"
+              as: "pollId"
+          expect:
+            - statusCode: 200
+
+      - think: 1
+
+      - get:
+          url: "/polls/{{ pollId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
