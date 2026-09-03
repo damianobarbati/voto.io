@@ -93,6 +93,7 @@ metadata:
   namespace: voto
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    traefik.ingress.kubernetes.io/router.middlewares: voto-api-rate-limit@kubernetescrd
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
@@ -111,3 +112,16 @@ spec:
                 name: api-service
                 port:
                   number: 80
+
+---
+
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-rate-limit
+  namespace: voto
+spec:
+  rateLimit:
+    average: 120
+    period: 1m
+    burst: 30

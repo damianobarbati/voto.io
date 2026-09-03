@@ -250,13 +250,23 @@ describe("Home", () => {
     expect(screen.getAllByText("Milan Labour Council").length).toBeGreaterThan(0);
   });
 
-  it("opens and closes a live poll", () => {
+  it("opens and closes a live poll", async () => {
+    localStorage.setItem(jwtStorageKey, "test-jwt");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input.toString();
+        if (url.endsWith("/live-polls") && init?.method === "POST") return new Response(JSON.stringify(pollsFixture[0]), { status: 200 });
+        if (url.endsWith("/open") && init?.method === "POST") return new Response(JSON.stringify(pollsFixture[0]), { status: 200 });
+        return new Response(JSON.stringify(pollsFixture), { status: 200 });
+      }),
+    );
     const router = createMemoryRouter([{ path: "/live-poll/:id", Component: Home }], { initialEntries: ["/live-poll/101"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("img", { name: "Live poll QR code" })).toBeDefined();
     expect(screen.queryByText("voto.io")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open poll" }));
-    expect(screen.getByText("131 / 184 voted")).toBeDefined();
+    expect(await screen.findByText("131 / 184 voted")).toBeDefined();
     expect(screen.getByText("184 / 100 live users")).toBeDefined();
     expect(screen.getAllByRole("link", { name: "Upgrade plan" }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Close poll" }));
@@ -273,14 +283,22 @@ describe("Home", () => {
     expect(screen.getByText("Live poll creation works only on a computer with a screen at least 1280px wide.")).toBeDefined();
   });
 
-  it("shows the mobile live voter waiting state after registration", () => {
+  it("shows the mobile live voter waiting state after registration", async () => {
     setViewportWidth(480);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input.toString();
+        if (url.endsWith("/attendees") && init?.method === "POST") return new Response(JSON.stringify({ token: "attendee-token" }), { status: 200 });
+        return new Response(JSON.stringify(pollsFixture), { status: 200 });
+      }),
+    );
     const router = createMemoryRouter([{ path: "/live-poll/:id/vote", Component: Home }], { initialEntries: ["/live-poll/101/vote"] });
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("heading", { level: 1, name: "Join Elena Rossi's live poll" })).toBeDefined();
     expect(screen.queryByText("voto.io")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByRole("heading", { level: 1, name: "Waiting for the poll" })).toBeDefined();
+    expect(await screen.findByRole("heading", { level: 1, name: "Waiting for the poll" })).toBeDefined();
   });
 
   it("shows the audience-limit state from the voter URL", () => {

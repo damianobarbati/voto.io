@@ -107,4 +107,3 @@ jobs:
         run: |
           docker tag webapp $DOCKERHUB_USERNAME/voto-webapp
           docker push $DOCKERHUB_USERNAME/voto-webapp
-
