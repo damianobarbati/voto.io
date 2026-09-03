@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import UserRepository from "#api/user/UserRepository.ts";
 import { app } from "../index.ts";
 import AuthService from "./AuthService.ts";
 
 describe("AuthController", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+
   describe("POST /login", () => {
     it("returns the JWT as a JSON string", async () => {
       const response = await app.request("/login", {
