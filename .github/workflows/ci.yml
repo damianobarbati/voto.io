@@ -72,7 +72,19 @@ jobs:
         run: pnpm -F webapp test
 
       - name: E2E testing
-        run: pnpm -F e2e test
+        run: |
+          pnpm -F e2e exec playwright install chromium
+
+          # start api service
+          sudo setcap 'cap_net_bind_service=+ep' $(which node)
+          pnpm -F api start:dev &
+          timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost/api/health); do printf .; sleep 1; done'
+
+          # start webapp service
+          pnpm -F webapp build:dev &
+          timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:3000); do printf .; sleep 1; done'
+          
+          pnpm -F e2e test
 
   build-and-deploy:
     timeout-minutes: 5
