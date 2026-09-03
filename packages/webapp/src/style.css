@@ -8,17 +8,23 @@
   --line-height: 1.6;
   --letter-spacing: 0em;
   --fade-duration: 0.5s;
-  --color-app-text: var(--color-gray-950);
-  --color-app-textlight: var(--color-slate-500);
-  --color-app-primary: var(--color-gray-900);
-  --color-app-bg: var(--color-gray-50);
-  --color-app-surface: var(--color-gray-50);
-  --color-app-border: var(--color-gray-200);
-  --color-app-link: var(--color-blue-600);
-  --color-app-link-hover: var(--color-blue-500);
+  --color-app-text: #071a3d;
+  --color-app-textlight: #475569;
+  --color-app-primary: #071a3d;
+  --color-app-bg: #f4f7fb;
+  --color-app-surface: #ffffff;
+  --color-app-border: #cbd5e1;
+  --color-app-link: #1d4ed8;
+  --color-app-link-hover: #2563eb;
 }
 
 @layer base {
+  @media (min-width: 1024px) {
+    :root {
+      --font-size: 18px;
+    }
+  }
+
   :root.dark {
     --color-app-text: #f4f4f5;
     --color-app-textlight: #a1a1aa;

@@ -51,3 +51,4 @@ cli.ts                        # CLI commands definitions
 - Provide API documentation documenting accepted inputs and expected outputs
 - Provide a health check endpoint that returns the API state
 - Avoid repeating the resource name in the method name: `UserService.greetUser()` is incorrect; `UserService.greet()` is correct.
+- never return calls to other functions, but always assign the result to a `const result = ...` and then `return result`, allowing a debugger breakpoint on returned value 

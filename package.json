@@ -5,9 +5,9 @@
   "author": "Damiano Barbati <damiano.barbati@gmail.com> (https://github.com/damianobarbati)",
   "repository": "https://github.com/damianobarbati/voto.io",
   "description": "Poll and vote.",
-  "packageManager": "pnpm@11.24.0",
+  "packageManager": "pnpm@11.25.0",
   "engines": {
-    "pnpm": ">=11.24",
+    "pnpm": ">=11.25",
     "node": ">=26.7"
   },
   "type": "module",
@@ -22,8 +22,8 @@
     "amaro": "^1.1.11"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.8",
-    "@types/node": "^26.3.0",
+    "@biomejs/biome": "^2.5.11",
+    "@types/node": "^26.4.1",
     "@vitest/coverage-v8": "^4.1.11",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

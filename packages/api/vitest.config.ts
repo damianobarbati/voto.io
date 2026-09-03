@@ -1,5 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
+import envk from "envk/fn";
 import { defineConfig } from "vitest/config";
 
+const envPath = path.resolve("../../.env");
+if (fs.existsSync(envPath)) envk(envPath);
+
+process.env.ENVK = "../../.env";
 export default defineConfig({
   test: {
     testTimeout: 60_000, // 1min

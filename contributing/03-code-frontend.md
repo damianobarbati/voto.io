@@ -25,9 +25,7 @@ Each component must:
 - Avoid CSS-in-JS solutions.
 
 ## UX
-UX must be provided as a Figma board.
-
-Figma board must include the UI kit with:
+UX must be provided as a board, composed the application UI kit with:
 - Typography.
 - Icon set from react-icons.
 - Buttons with possible statuses and interactions.
@@ -36,8 +34,7 @@ Figma board must include the UI kit with:
 - Confirmation prompts for quick yes/no input from the user.
 - Table with the search bar and available filters.
 
-Figma board must be composed using the UI kit.  
-Figma board must provide each view for the following resolutions:
+The board must provide each view for the following resolutions:
 - Desktop: 1280 x 700
 - Tablet: 768x1024
 - Smartphone: 390x844

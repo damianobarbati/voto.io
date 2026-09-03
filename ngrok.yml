@@ -1,0 +1,12 @@
+version: 3
+
+tunnels:
+  api:
+    addr: 8080
+    proto: http
+    hostname: api-votoio.ngrok.dev
+
+  website:
+    addr: 3000
+    proto: http
+    hostname: votoio.ngrok.dev

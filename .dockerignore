@@ -1,11 +1,11 @@
+.git
 **/.env*
 !**/.env.sample
-**/node_modules
-**/dist
-**/coverage
+**/node_modules/
+**/dist/
+**/coverage/
 **/stats.html
 
-.git
-.idea
-.vscode
+.idea/
+.vscode/
 .DS_Store

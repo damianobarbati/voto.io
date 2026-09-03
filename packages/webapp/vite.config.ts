@@ -35,6 +35,9 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: true,
   },
+  optimizeDeps: {
+    include: ["react-dom/client"],
+  },
   test: {
     browser: {
       enabled: true,

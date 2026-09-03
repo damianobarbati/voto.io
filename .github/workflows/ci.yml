@@ -31,6 +31,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Detect leaked secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
+
       - name: Setup PNPM
         uses: pnpm/action-setup@v5
 
@@ -58,9 +63,13 @@ jobs:
           pnpm env:up
           timeout 10 bash -c -- "while ! docker run --rm --network=host -i postgres:18-alpine pg_isready --quiet --timeout=1 -d ${DB_URI:?}; do sleep 1; done"
           pnpm -F api db:migrate
+          pnpm -F api db:seed
 
       - name: Test package "api"
         run: pnpm -F api test
+
+      - name: Test package "webapp"
+        run: pnpm -F webappp test
 
   build-and-deploy:
     timeout-minutes: 5
@@ -73,6 +82,9 @@ jobs:
 
       - name: Build image "api"
         run: DOCKER_BUILDKIT=1 docker build --quiet --rm --force-rm -t api -f ./packages/api/Dockerfile .
+
+      - name: Build image "webapp"
+        run: DOCKER_BUILDKIT=1 docker build --quiet --rm --force-rm -t webapp -f ./packages/webapp/Dockerfile .
 
       - name: Dockerhub login
         if: startsWith(github.ref, 'refs/tags/')
