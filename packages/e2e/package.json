@@ -1,0 +1,17 @@
+{
+  "name": "e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:ui": "VOTO_E2E_HEADED=1 vitest --ui",
+    "test:load": "artillery run load/live-poll.yml"
+  },
+  "devDependencies": {
+    "@vitest/ui": "4.1.11",
+    "artillery": "^2.0.34",
+    "envk": "^4.0.5",
+    "playwright": "^1.62.1",
+    "vitest": "^4.1.11"
+  }
+}

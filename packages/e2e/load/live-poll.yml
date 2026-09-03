@@ -1,0 +1,18 @@
+config:
+  target: http://localhost:8080
+  phases:
+    - duration: 60
+      arrivalRate: 100
+  ensure:
+    maxErrorRate: 1
+    p99: 100
+scenarios:
+  - name: Live poll SSE and vote
+    flow:
+      - get:
+          url: /live-polls/poll-1/events
+      - post:
+          url: /live-polls/poll-1/votes
+          json:
+            option_ids:
+              - poll-1-option-1
