@@ -63,6 +63,7 @@ jobs:
           pnpm env:up
           timeout 10 bash -c -- "while ! docker run --rm --network=host -i postgres:18-alpine pg_isready --quiet --timeout=1 -d ${DB_URI:?}; do sleep 1; done"
           pnpm -F api db:migrate
+          pnpm -F api db:seed
 
       - name: Test package "api"
         run: pnpm -F api test
