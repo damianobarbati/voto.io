@@ -1,5 +1,36 @@
 # Feature: bootstrap the application
 
+## Task
+
+Bootstrap voto.io with a responsive web application, poll APIs, authentication,
+seed data, and deployment configuration.
+
+## Problem
+
+voto.io did not have an integrated product foundation. Users could not register,
+create or vote in polls, browse poll results, manage groups, or select a plan.
+The repository also lacked the database model, API contracts, test coverage, and
+Kubernetes resources needed to run these flows.
+
+## Solution
+
+- Added the database schema and seed data for users, plans, subscriptions,
+  payments, groups, invitations, polls, options, and votes.
+- Added shared Zod contracts and API routes for registration, login,
+  authenticated-user lookup, poll listing and creation, voting, and results.
+  Authentication uses signed bearer tokens and password hashing.
+- Added the responsive voto.io application with landing, poll, results, group,
+  profile, subscription, checkout, live-poll, and account views. Added English,
+  Spanish, German, French, and Italian localization, and plan-selection UI.
+- Added API and web application tests, API documentation support, CI web
+  application tests, and Kubernetes manifests for the API and web application.
+
+**Hereafter the full context provided to bootstrap the application. This is only for the first commit bootstrapping the project.**
+
+---
+
+# Feature: bootstrap the application
+
 The task is to create a responsive design (mock api calls or data) for the "voto.io" webapp.
 
 Supported resolutions are desktop (1280 x 700), tablet (800 x 600) and mobile (480 x 320).
@@ -146,10 +177,10 @@ Primary Results Box:
 - "No suitable option" is displayed as a distinct item within the list.
   Demographic Breakdown Box:
 - Multi-tab or grid section breaking down the voter base by:
-    - **Gender:** Distribution by gender (Male / Female).
-    - **Age:** Distribution across age groups (14-18, 19-24, 25-30, 31-40, 41-50, 51-60, 60+).
-    - **Income:** Distribution across gross annual income bands.
-    - **Geography:** Distribution by City and Country.
+  - **Gender:** Distribution by gender (Male / Female).
+  - **Age:** Distribution across age groups (14-18, 19-24, 25-30, 31-40, 41-50, 51-60, 60+).
+  - **Income:** Distribution across gross annual income bands.
+  - **Geography:** Distribution by City and Country.
 - For each segment, display both **segment turnout** and **option preference distribution within that segment**.
 
 ### For many-choice polls
@@ -157,9 +188,9 @@ Primary Results Box:
 Primary Results Box:
 - Grouped bar chart or dual-metric table showing every choice.
 - Displayed for each choice:
-    - **% of Voters:** Percentage of total voters who included this option in their ballot (sum > 100%).
-    - **% of Total Selections:** Percentage of all individual selections made across all ballots (sum = 100%).
-    - **Absolute Votes:** Total number of times the option was selected.
+  - **% of Voters:** Percentage of total voters who included this option in their ballot (sum > 100%).
+  - **% of Total Selections:** Percentage of all individual selections made across all ballots (sum = 100%).
+  - **Absolute Votes:** Total number of times the option was selected.
 - Sorted in descending order by `% of Voters`.
   Demographic Breakdown Box:
 - Same structure as One-Choice Polls (Age, Gender, Income, Geography).
@@ -171,9 +202,9 @@ Primary Results Box (Algorithm Dependent):
 If Algorithm is `irv` (Instant-Runoff Voting):
 - **Winner Badge:** Highlight the winning option that reached >50% majority.
 - **Elimination Rounds Breakdown:** Step-by-step table or flow diagram showing:
-    - Round 1 first-preference shares.
-    - Successive rounds showing candidate eliminations and vote re-distributions until a majority winner is reached.
-      If Algorithm is `borda` (Borda Count):
+  - Round 1 first-preference shares.
+  - Successive rounds showing candidate eliminations and vote re-distributions until a majority winner is reached.
+    If Algorithm is `borda` (Borda Count):
 - **Final Ranking List:** Ranked options ordered by total accumulated points.
 - Displayed for each choice: **Total Borda Points** and **% Share of Total Points**.
 
