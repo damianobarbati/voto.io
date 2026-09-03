@@ -27,6 +27,7 @@ describe("Router", () => {
 
       const response = await app.request("/ping", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       expect(response.status).toEqual(200);

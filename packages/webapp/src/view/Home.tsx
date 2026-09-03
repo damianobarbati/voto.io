@@ -192,9 +192,7 @@ const Header = ({ user }: HeaderProps) => {
   const navigate = useNavigate();
   const [language, setLanguage] = React.useState(i18n.resolvedLanguage ?? i18n.language);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
-  const [currentUser, setCurrentUser] = React.useState(user);
-  const isLoggedIn = currentUser !== null;
-  React.useEffect(() => setCurrentUser(user), [user]);
+  const isLoggedIn = user !== null;
   const changeLanguage: React.ChangeEventHandler<HTMLSelectElement> = async (event) => {
     const selectedLanguage = event.target.value;
     await i18n.changeLanguage(selectedLanguage);
@@ -202,7 +200,7 @@ const Header = ({ user }: HeaderProps) => {
     setLanguage(selectedLanguage);
   };
   const logout = () => {
-    setCurrentUser(null);
+    store.persist.clearStorage();
     store.getState().logout();
     localStorage.removeItem(jwtStorageKey);
     localStorage.removeItem(registrationStorageKey);
@@ -236,7 +234,7 @@ const Header = ({ user }: HeaderProps) => {
           {isLoggedIn ? (
             <div className="relative" onMouseEnter={() => setIsProfileMenuOpen(true)} onMouseLeave={() => setIsProfileMenuOpen(false)}>
               <button className="rounded-full bg-blue-600 px-3 py-2 font-bold text-white" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} type="button">
-                {currentUser.name}
+                {user.name}
               </button>
               {isProfileMenuOpen && (
                 <div className="absolute top-full right-0 z-10 w-36 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
@@ -323,6 +321,18 @@ const PollCard = ({ poll }: { poll: Poll }) => {
     </article>
   );
 };
+
+type EmptyTabProps = { action: string; actionTo: string; message: string };
+
+const EmptyTab = ({ action, actionTo, message }: EmptyTabProps) => (
+  <div className="col-span-full rounded-xl border border-slate-200 border-dashed bg-slate-50 px-5 py-10 text-center">
+    <FiUsers className="mx-auto text-2xl text-slate-400" />
+    <p className="mt-3 font-semibold text-slate-700">{message}</p>
+    <Link className="mt-4 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to={actionTo}>
+      {action}
+    </Link>
+  </div>
+);
 const Landing = () => {
   const { t } = useTranslation();
   const { data: polls = [], isLoading } = usePolls();
@@ -599,7 +609,15 @@ const PollDetail = () => {
                   <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-3 has-checked:border-blue-600 has-checked:bg-blue-50" key={option}>
                     <input
                       checked={many.includes(option)}
-                      onChange={() => setMany(many.includes(option) ? many.filter((item) => item !== option) : [...many, option])}
+                      onChange={() => {
+                        const isNoSuitableOption = option === "No suitable option.";
+                        if (isNoSuitableOption) {
+                          setMany(many.includes(option) ? [] : [option]);
+                          return;
+                        }
+                        const selectedOptions = many.filter((item) => item !== "No suitable option.");
+                        setMany(many.includes(option) ? selectedOptions.filter((item) => item !== option) : [...selectedOptions, option]);
+                      }}
                       type="checkbox"
                     />
                     {option}
@@ -942,7 +960,32 @@ const LiveDemographicPanel = () => (
   </details>
 );
 
+const desktopMinimumWidth = 1280;
+const phoneMaximumWidth = 767;
+
+const useViewportWidth = () => {
+  const [width, setWidth] = React.useState(() => (typeof window === "undefined" ? desktopMinimumWidth : window.innerWidth));
+  React.useEffect(() => {
+    const updateWidth = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
+  return width;
+};
+
+const LivePollDeviceGate = ({ message }: { message: string }) => (
+  <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-5 text-center">
+    <FiSmartphone className="size-16 text-blue-700" />
+    <h1 className="mt-5 font-bold text-3xl">Device not supported</h1>
+    <p className="mt-3 text-slate-600">{message}</p>
+    <Link className="mt-7 rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/">
+      Back to voto.io
+    </Link>
+  </main>
+);
+
 const LivePoll = () => {
+  const viewportWidth = useViewportWidth();
   const [status, setStatus] = React.useState<"setup" | "open" | "closed">("setup");
   const [question, setQuestion] = React.useState("Which policy should open the forum?");
   const [options, setOptions] = React.useState(["Housing access", "Local transport", "Climate action"]);
@@ -952,6 +995,7 @@ const LivePoll = () => {
   const overAudienceLimit = viewers > liveAudienceLimit;
   const addOption = () => setOptions([...options, ""]);
   const updateOption = ({ index, value }: { index: number; value: string }) => setOptions(options.map((option, optionIndex) => (optionIndex === index ? value : option)));
+  if (viewportWidth < desktopMinimumWidth) return <LivePollDeviceGate message="Live poll creation works only on a computer with a screen at least 1280px wide." />;
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-7">
       <div className="flex items-start justify-between gap-4">
@@ -1062,9 +1106,11 @@ const getLiveVoterStep = ({ value }: { value: string | null }): LiveVoterStep =>
 };
 
 const LiveVoter = () => {
+  const viewportWidth = useViewportWidth();
   const { search } = useLocation();
   const [step, setStep] = React.useState<LiveVoterStep>(() => getLiveVoterStep({ value: new URLSearchParams(search).get("state") }));
   const [choice, setChoice] = React.useState("");
+  if (viewportWidth > phoneMaximumWidth) return <LivePollDeviceGate message="Live poll participation works only on a phone." />;
   if (step === "register") {
     return (
       <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-white px-5 py-8">
@@ -1187,6 +1233,12 @@ const Groups = () => {
               </p>
             </article>
           ))}
+          {visibleGroups.length === 0 &&
+            (groupTab === "managed" ? (
+              <EmptyTab action="Create group" actionTo="/my-groups/new" message="You do not manage any groups yet." />
+            ) : (
+              <EmptyTab action="Explore polls" actionTo="/poll/list" message="You do not belong to any groups yet." />
+            ))}
         </div>
         <div className="mt-8 text-center">
           <p className="text-slate-600 text-sm">Upgrade to create and manage private groups.</p>
@@ -1626,6 +1678,12 @@ const MyPolls = () => {
         {visiblePolls.map((poll) => (
           <PollCard key={poll.id} poll={poll} />
         ))}
+        {visiblePolls.length === 0 &&
+          (pollTab === "created" ? (
+            <EmptyTab action="Create poll" actionTo="/poll/new" message="You have not created any polls yet." />
+          ) : (
+            <EmptyTab action="Explore polls" actionTo="/poll/list" message="You have not voted on any polls yet." />
+          ))}
       </div>
     </main>
   );
@@ -1691,7 +1749,8 @@ const Creator = () => {
 
 export const Home = () => {
   const path = useLocation().pathname;
-  const user = store((state) => state.user);
+  const [user, setUser] = React.useState(store.getState().user);
+  React.useEffect(() => store.subscribe((state) => setUser(state.user)), []);
   const isLivePoll = path.startsWith("/live-poll/");
   const isLiveVoter = path.endsWith("/vote") && isLivePoll;
   let page = <Landing />;

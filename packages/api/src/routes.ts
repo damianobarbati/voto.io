@@ -21,6 +21,21 @@ const authMiddleware: MiddlewareHandler = async (c, next) => {
 
 export const router = new Hono();
 
+const PingRequestSchema = z.record(z.string(), z.unknown());
+
+registerRoute(router, {
+  method: "post",
+  path: "/ping",
+  requestSchema: PingRequestSchema,
+  responseSchema: PingRequestSchema,
+  meta: { section: "System", description: "Echo a JSON payload." },
+  middlewares: [loggerMiddleware],
+  handler: (params) => {
+    const result = params;
+    return result;
+  },
+});
+
 registerRoute(router, {
   method: "get",
   path: "/polls",

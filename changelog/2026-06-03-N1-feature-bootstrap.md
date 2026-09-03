@@ -1,3 +1,5 @@
+# Feature: bootstrap the application
+
 The task is to create a responsive design (mock api calls or data) for the "voto.io" webapp.
 
 Supported resolutions are desktop (1280 x 700), tablet (800 x 600) and mobile (480 x 320).
@@ -66,10 +68,10 @@ Live poll feature is free for all registed users for up to live 100 users.
 
 ## Organization support
 Add support for Organizations (e.g., Political Parties, Companies) to create prviate groups and invite specific members to them by email.  
-Restrict poll visibility and voting exclusively to those group members. This is a core monetization feature.  
+Restrict poll visibility and voting exclusively to those group members. This is a core monetization feature.
 
-The page groups list (`/groups`) provides an overview of owned and joined groups. 
-It shows the option to upgrade to a paid plan to unlock groups.  
+The page groups list (`/groups`) provides an overview of owned and joined groups.
+It shows the option to upgrade to a paid plan to unlock groups.
 
 The page group creation (`/group/new`) allows to create a new group, providing:
 - group name
@@ -80,7 +82,7 @@ The page group creation (`/group/new`) allows to create a new group, providing:
 
 The page group (`/group/:id`) allows to edit the group and to see a list of all emails invited, with its invitation status (pending, accepted, rejected).
 
-Paying users see in the poll creation form the option "access control" to restrict the poll to a specific group they created, chosen from a dropdown. 
+Paying users see in the poll creation form the option "access control" to restrict the poll to a specific group they created, chosen from a dropdown.
 
 Show a visual lock badge (e.g., "Exclusive to you belonging to [Group Name]") on private polls for eligible members.
 Show an Access Denied state if a non-member accesses a private poll URL directly ("This poll is restricted to members of [Group Name]").
@@ -115,7 +117,7 @@ Voto.io was created to leverage existing technology to offer a tool that allows 
 Perchè voto.io?
 La democrazia diretta è sempre stata considerata un'utopia logistica, applicabile solo a piccole comunità o a consultazioni rare e costose.  
 Oggi, la tecnologia ha azzerato i costi di coordinamento e le barriere d'accesso, rendendo possibile ciò che fino a poco tempo fa era impensabile.  
-Voto.io nasce per sfruttare la tecnologia esistente e offrire uno strumento che permette a chiunque, dal singolo cittadino fino a un'intera nazione, di prendere decisioni collettive.  
+Voto.io nasce per sfruttare la tecnologia esistente e offrire uno strumento che permette a chiunque, dal singolo cittadino fino a un'intera nazione, di prendere decisioni collettive.
 
 ## Glossary
 
@@ -142,7 +144,7 @@ Primary Results Box:
 - Displayed for each choice: **Absolute Votes** and **% of Total Votes**.
 - Sorted in descending order by vote percentage.
 - "No suitable option" is displayed as a distinct item within the list.
-Demographic Breakdown Box:
+  Demographic Breakdown Box:
 - Multi-tab or grid section breaking down the voter base by:
     - **Gender:** Distribution by gender (Male / Female).
     - **Age:** Distribution across age groups (14-18, 19-24, 25-30, 31-40, 41-50, 51-60, 60+).
@@ -159,7 +161,7 @@ Primary Results Box:
     - **% of Total Selections:** Percentage of all individual selections made across all ballots (sum = 100%).
     - **Absolute Votes:** Total number of times the option was selected.
 - Sorted in descending order by `% of Voters`.
-Demographic Breakdown Box:
+  Demographic Breakdown Box:
 - Same structure as One-Choice Polls (Age, Gender, Income, Geography).
 - Computes option selection rates independently within each demographic segment.
 
@@ -171,7 +173,7 @@ If Algorithm is `irv` (Instant-Runoff Voting):
 - **Elimination Rounds Breakdown:** Step-by-step table or flow diagram showing:
     - Round 1 first-preference shares.
     - Successive rounds showing candidate eliminations and vote re-distributions until a majority winner is reached.
-If Algorithm is `borda` (Borda Count):
+      If Algorithm is `borda` (Borda Count):
 - **Final Ranking List:** Ranked options ordered by total accumulated points.
 - Displayed for each choice: **Total Borda Points** and **% Share of Total Points**.
 
@@ -185,7 +187,7 @@ Demographic Breakdown Box:
 ## Live poll
 
 User can create a live-poll to share with a live audience.  
-The use case is for live or streamed events, such as conferences and public speeches.  
+The use case is for live or streamed events, such as conferences and public speeches.
 
 The flow is for the creator:
 - User clicks on the quick-action **Create live poll**
@@ -196,14 +198,14 @@ The flow is for the creator:
 - a button to close the votation is displayed
 
 When the creator closes the live votation, the results are displayed with the following information:
-- The demographic breakdown goes inside an expandable panel under each voting option.  
-- For gender, use a single horizontal bar divided into two sections: light blue for men and pink for women, with the percentage written inside each segment.  
+- The demographic breakdown goes inside an expandable panel under each voting option.
+- For gender, use a single horizontal bar divided into two sections: light blue for men and pink for women, with the percentage written inside each segment.
 - For age, use a horizontal stacked bar chart. Age groups are ordered from the youngest at the top to the oldest at the bottom. Each bar represents an age group and is split internally into light blue and pink segments withtheir respective percentages.
-- For income, use the same horizontal stacked bar chart. Income brackets are ordered from the lowest income at the top to the highest at the bottom. Each bar is split between light blue and pink with percentage values shown.  
-- For geography, use a simple horizontal bar chart ordered from the city with the most votes at the top down to the lowest. Display only the top ten cities and add a final bar labeled other cities to collect all remaining votes.  
+- For income, use the same horizontal stacked bar chart. Income brackets are ordered from the lowest income at the top to the highest at the bottom. Each bar is split between light blue and pink with percentage values shown.
+- For geography, use a simple horizontal bar chart ordered from the city with the most votes at the top down to the lowest. Display only the top ten cities and add a final bar labeled other cities to collect all remaining votes.
 
 Below the QR code, a number showing the total count of voters who have the live poll page opened is displayed in the form "live / total for the plan".
-When the live users exceed the allowed quota for the creator's plan, a button is displayed to the creator to go to subscriptions page and upgrade his plan.  
+When the live users exceed the allowed quota for the creator's plan, a button is displayed to the creator to go to subscriptions page and upgrade his plan.
 
 The flow for the voter is:
 - QR code is scanned
@@ -231,16 +233,16 @@ Hovering or tapping the profile triggers a dropdown with:
 
 Settings page provides the option to change email and/or password.
 
-Profile page provides a form with user information read-only, where nothing can be changed after registration.  
+Profile page provides a form with user information read-only, where nothing can be changed after registration.
 
 Subscription page shows the current active plan with the limits, the option to downgrade/upgrade his plan to any other one.  
 Below the plan, there is the list of payments with the date of payment, the method (credit card, paypal or apple pay), the amount, the plan purchased and a button to download the invoice.
 The free plan says, "Valid forever".
 
-The groups page provides two tabs: 
+The groups page provides two tabs:
 - the groups he belongs to
 - the groups he manages
-At the center of the tab content, there's the option to upgrade plan if the user is on the free plan.
+  At the center of the tab content, there's the option to upgrade plan if the user is on the free plan.
 
 The groups page provides two tabs:
 - the list of polls the user created
@@ -248,7 +250,7 @@ The groups page provides two tabs:
 
 The user has a public link he can share bringing to his creator page.  
 The user's creator page has his last name hidden and replaced with the first letter (e.g., John D.).
-In the creator's page there are 2 main tabs, the open polls (if visible to the user), and the closed polls (if visible to the user). 
+In the creator's page there are 2 main tabs, the open polls (if visible to the user), and the closed polls (if visible to the user).
 
 ## Technical details
 

@@ -1,8 +1,8 @@
 # Type: summary
 
-Type can either be `feature`, `fix`, `chore`, `perf`.  
+Type can either be `feature`, `fix`, `chore`, `perf`. Summary is the slug defining what was/must-be done.
 
-# Task description
+# Task
 
 Context and requirements provided to the developer or the agent.
 
