@@ -1,11 +1,14 @@
-import { chromium, type Browser, type Page } from "playwright";
+import { type Browser, chromium, type Page } from "playwright";
 
 const headed = process.env.VOTO_E2E_HEADED === "1";
 export const keepBrowserOpen = process.env.VOTO_E2E_KEEP_BROWSER_OPEN === "1";
 
-export const openBrowser = async (): Promise<{ browser: Browser; page: Page }> => {
-  const browser = await chromium.launch({ channel: "chromium", headless: !headed, slowMo: headed ? 500 : 0 });
-  const context = await browser.newContext({ locale: "en", viewport: { width: 1280, height: 700 } });
+type OpenBrowserInput = { viewport?: { height: number; width: number }; window?: { height: number; width: number; x: number; y: number } };
+
+export const openBrowser = async ({ viewport = { width: 1280, height: 700 }, window }: OpenBrowserInput = {}): Promise<{ browser: Browser; page: Page }> => {
+  const args = headed && window ? [`--window-position=${window.x},${window.y}`, `--window-size=${window.width},${window.height}`] : [];
+  const browser = await chromium.launch({ args, channel: "chromium", headless: !headed, slowMo: headed ? 500 : 0 });
+  const context = await browser.newContext({ locale: "en", viewport });
   const page = await context.newPage();
   return { browser, page };
 };

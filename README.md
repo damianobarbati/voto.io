@@ -1,6 +1,9 @@
 # voto.io
 
-Poll and vote.
+Make your voice heard.  
+Check it out [here](https://votoio.duckdns.org).  
+
+## Development
 
 Requirements:
 - `fnm` (eg: `brew install fnm`)
@@ -56,3 +59,5 @@ pnpm -F api test:load-scenarios
 ```
 
 You can prefix with `DEBUG=http` to log every HTTP request being issued.
+Load testing should run on two dedicated runners with fixed CPU and memory limits/quotas for predictable results.  
+The load generator should run separately from the API host, otherwise Artillery competes with the service for CPU and network.  

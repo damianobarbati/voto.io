@@ -991,6 +991,7 @@ const LivePoll = () => {
   const [status, setStatus] = React.useState<"setup" | "open" | "closed">("setup");
   const [question, setQuestion] = React.useState("Which policy should open the forum?");
   const [options, setOptions] = React.useState(["Housing access", "Local transport", "Climate action"]);
+  const [livePoll, setLivePoll] = React.useState<ApiPoll | null>(null);
   const [isLinkCopied, setIsLinkCopied] = React.useState(false);
   const liveAudienceLimit = 100;
   const viewers = status === "setup" ? 27 : status === "open" ? 184 : 213;
@@ -999,7 +1000,7 @@ const LivePoll = () => {
   const addOption = () => setOptions([...options, ""]);
   const updateOption = ({ index, value }: { index: number; value: string }) => setOptions(options.map((option, optionIndex) => (optionIndex === index ? value : option)));
   const copyVoterLink = async () => {
-    const voterLink = `${window.location.origin}/live-poll/${id}/vote`;
+    const voterLink = `${window.location.origin}/live-poll/${livePoll?.id ?? id}/vote`;
     await navigator.clipboard.writeText(voterLink);
     setIsLinkCopied(true);
   };
@@ -1025,8 +1026,25 @@ const LivePoll = () => {
       {status === "setup" && (
         <form
           className="mt-7 max-w-3xl space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
+            const token = localStorage.getItem(jwtStorageKey);
+            if (!token) return;
+            const createdResponse = await fetch(`${apiUrl}/live-polls`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ name: question, options }),
+            });
+            if (!createdResponse.ok) return;
+            const created = PollSchema.parse(await createdResponse.json());
+            const openedResponse = await fetch(`${apiUrl}/live-polls/${created.id}/open`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            });
+            if (!openedResponse.ok) return;
+            const opened = PollSchema.parse(await openedResponse.json());
+            setLivePoll(opened);
             setStatus("open");
           }}
         >
@@ -1120,8 +1138,11 @@ const getLiveVoterStep = ({ value }: { value: string | null }): LiveVoterStep =>
 const LiveVoter = () => {
   const viewportWidth = useViewportWidth();
   const { search } = useLocation();
+  const { id } = useParams();
   const [step, setStep] = React.useState<LiveVoterStep>(() => getLiveVoterStep({ value: new URLSearchParams(search).get("state") }));
   const [choice, setChoice] = React.useState("");
+  const [attendeeToken, setAttendeeToken] = React.useState("");
+  const { data: livePoll } = useSWR(id ? `${apiUrl}/polls/${id}` : null, async (url: string) => PollSchema.parse(await (await fetch(url)).json()));
   if (viewportWidth > phoneMaximumWidth) return <LivePollDeviceGate message="Live poll participation works only on a phone." />;
   if (step === "register") {
     return (
@@ -1131,8 +1152,13 @@ const LiveVoter = () => {
         <p className="mt-2 text-slate-600">Provide details to confirm eligibility.</p>
         <form
           className="mt-6 grid gap-4"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
+            if (!id) return;
+            const response = await fetch(`${apiUrl}/live-polls/${id}/attendees`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+            if (!response.ok) return;
+            const attendee = (await response.json()) as { token: string };
+            setAttendeeToken(attendee.token);
             setStep("waiting");
           }}
         >
@@ -1183,19 +1209,27 @@ const LiveVoter = () => {
   return (
     <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-white px-5 py-8">
       <p className="font-bold text-blue-700 text-sm tracking-wider">LIVE POLL</p>
-      <h1 className="mt-2 font-bold text-3xl">Which policy should open the forum?</h1>
+      <h1 className="mt-2 font-bold text-3xl">{livePoll?.name ?? "Loading poll"}</h1>
       <div className="mt-7 space-y-3">
-        {["Housing access", "Local transport", "Climate action"].map((option) => (
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-4 has-checked:border-blue-600 has-checked:bg-blue-50" key={option}>
-            <input checked={choice === option} name="live-vote" onChange={() => setChoice(option)} type="radio" />
-            {option}
+        {(livePoll?.options ?? []).map((option) => (
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-4 has-checked:border-blue-600 has-checked:bg-blue-50" key={option.id}>
+            <input checked={choice === option.id} name="live-vote" onChange={() => setChoice(option.id)} type="radio" />
+            {option.name}
           </label>
         ))}
       </div>
       <button
         className="mt-7 w-full rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:bg-slate-300"
         disabled={!choice}
-        onClick={() => setStep("thanks")}
+        onClick={async () => {
+          if (!id) return;
+          const response = await fetch(`${apiUrl}/live-polls/${id}/votes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-live-attendee-token": attendeeToken },
+            body: JSON.stringify({ option_ids: [choice] }),
+          });
+          if (response.ok) setStep("thanks");
+        }}
         type="button"
       >
         Submit vote

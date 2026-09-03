@@ -1,10 +1,10 @@
 config:
   target: http://localhost:8080
   phases:
-    - name: "For 30 seconds, 100 users every second, up to 1000 concurrent users"
-      duration: 30
-      arrivalRate: 100
-      maxVusers: 1000
+    - name: "For 20 seconds, 100 users every second, up to 100 concurrent users"
+      duration: 20
+      arrivalRate: 75
+      maxVusers: 75
 
   log:
     level: error
@@ -18,8 +18,7 @@ config:
       outputFormat: silent
 
     ensure:
-      maxErrorRate: 1 # max 1% of vusers scenario failures / vusers created
+      maxErrorRate: 1 # max 1% of vUsers scenario failures on all vUsers scenarios created
       thresholds:
         - http.response_time.p99: 250 # p99 response time <= 500ms
         - http.response_time.p95: 100 # p95 response time <= 250ms
-

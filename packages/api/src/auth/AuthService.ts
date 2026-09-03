@@ -1,11 +1,21 @@
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { HTTPException } from "hono/http-exception";
-import { type User, type UserEmailUpdateRequest, type UserLoginRequest, type UserLoginResponse, UserLoginResponseSchema, type UserPasswordUpdateRequest, type UserRegisterRequest, type UserRow, UserSchema } from "types/User.ts";
-import database from "#api-database/database.ts";
+import {
+  type User,
+  type UserEmailUpdateRequest,
+  type UserLoginRequest,
+  type UserLoginResponse,
+  UserLoginResponseSchema,
+  type UserPasswordUpdateRequest,
+  type UserRegisterRequest,
+  type UserRow,
+  UserSchema,
+} from "types/User.ts";
 import { z } from "zod";
 import ENV from "#api/env.ts";
 import UserRepository from "#api/user/UserRepository.ts";
+import database from "#api-database/database.ts";
 
 const INVALID_CREDENTIALS_ERROR = "Invalid email or password";
 const INVALID_TOKEN_ERROR = "Invalid authentication token";
@@ -109,7 +119,8 @@ export default class AuthService {
   static async changePassword({ authorization, current_password, password }: UserPasswordUpdateRequest): Promise<void> {
     const id = getUserId({ authorization });
     const user = await UserRepository.findBy({ id });
-    if (!user || !(await AuthService.verifyPassword({ password: current_password, passwordHash: user.password_hash }))) throw new HTTPException(401, { message: INVALID_CREDENTIALS_ERROR });
+    if (!user || !(await AuthService.verifyPassword({ password: current_password, passwordHash: user.password_hash })))
+      throw new HTTPException(401, { message: INVALID_CREDENTIALS_ERROR });
     const password_hash = await AuthService.hashPassword({ password });
     await database("users").where({ id }).update({ password_hash });
   }

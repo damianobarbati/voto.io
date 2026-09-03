@@ -1,11 +1,19 @@
+config:
+  http:
+    timeout: 61 # needed for SSE
+
 scenarios:
   - name: "Live poll SSE and vote"
 
     flow:
       - get:
           url: /live-polls/poll-1/events
+          expect:
+            - statusCode: 200
       - post:
           url: /live-polls/poll-1/votes
           json:
             option_ids:
               - poll-1-option-1
+          expect:
+            - statusCode: 200

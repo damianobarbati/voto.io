@@ -1,0 +1,47 @@
+name: Load testing
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  load-test:
+    timeout-minutes: 5
+    runs-on: [self-hosted, linux, x64, voto-load-16core]
+    concurrency:
+      group: voto-nightly-load
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v5
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --silent --frozen-lockfile --prefer-offline --prod=false
+
+      - name: Setup envs
+        run: cp .env.sample .env
+
+      - name: Start testing environment
+        run: |
+          export $(grep -v '^#' .env | xargs)
+          pnpm env:up
+          timeout 10 bash -c -- "while ! docker run --rm --network=host -i postgres:18-alpine pg_isready --quiet --timeout=1 -d ${DB_URI:?}; do sleep 1; done"
+          pnpm -F api db:migrate
+          pnpm -F api db:seed
+
+      - name: Load testing
+        run: pnpm -F e2e test:load

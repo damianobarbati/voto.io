@@ -74,9 +74,6 @@ jobs:
       - name: E2E testing
         run: pnpm -F e2e test
 
-      - name: Load testing
-        run: pnpm -F e2e test:load-scenarios
-
   build-and-deploy:
     timeout-minutes: 5
     runs-on: ubuntu-24.04

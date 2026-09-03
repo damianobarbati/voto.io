@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
 import type { Browser, Page } from "playwright";
+import { afterEach, describe, it } from "vitest";
 import { keepBrowserOpen, openBrowser, pause, type } from "./browser.ts";
 
 const webappUrl = "http://localhost:3000";
@@ -57,5 +57,4 @@ describe.sequential("voto user flows", () => {
     await currentPage.getByText("Votes cast").waitFor();
     await pause({ page: currentPage });
   });
-
 });
