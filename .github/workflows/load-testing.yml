@@ -12,7 +12,9 @@ defaults:
 jobs:
   load-test:
     timeout-minutes: 5
-    runs-on: [self-hosted, linux, x64, voto-load-16core]
+    # suggested ↓
+    # runs-on: [self-hosted, linux, x64, voto-load-16core]
+    runs-on: ubuntu-24.04
     concurrency:
       group: voto-nightly-load
       cancel-in-progress: false

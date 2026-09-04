@@ -2,6 +2,7 @@
 
 Make your voice heard.  
 Soon (but not yet) available [here](https://votoio.duckdns.org).  
+**This project is 100% generated using AI.**  
 
 ## Development
 
