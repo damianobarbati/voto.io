@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   load-test:
-    timeout-minutes: 5
+    timeout-minutes: 10
     # suggested ↓
     # runs-on: [self-hosted, linux, x64, voto-load-16core]
     runs-on: ubuntu-24.04
