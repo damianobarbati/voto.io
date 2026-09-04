@@ -17,7 +17,7 @@
   "dependencies": {
     "@faker-js/faker": "^10.6.0",
     "@hono/node-server": "^2.1.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "debug": "^4.4.3",
     "envk": "^4.0.5",
     "hono": "^4.13.5",
