@@ -8,10 +8,10 @@
     "test:load": "for f in load-scenarios/*.yml; do artillery run --config artillery.yml \"$f\" || exit 1; done"
   },
   "devDependencies": {
-    "@vitest/ui": "4.1.11",
+    "@vitest/ui": "5.0.0",
     "artillery": "^2.0.34",
     "envk": "^4.0.5",
     "playwright": "^1.62.1",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   }
 }

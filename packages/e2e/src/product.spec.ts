@@ -22,7 +22,7 @@ afterEach(async () => {
   page = undefined;
 });
 
-describe.sequential("voto user flows", () => {
+describe("voto user flows", () => {
   it("registers a user from the site", async () => {
     const currentPage = await open({ path: "/register" });
     const email = `e2e-${Date.now()}@example.com`;

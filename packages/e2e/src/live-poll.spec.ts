@@ -33,7 +33,7 @@ afterEach(async () => {
   voterBrowser = undefined;
 });
 
-describe.sequential("live poll", () => {
+describe("live poll", () => {
   it("creates and opens a live poll, then records a mobile attendee vote", async () => {
     const creator = await openCreator();
     const createdResponse = creator.waitForResponse((response) => response.url().endsWith("/live-polls") && response.request().method() === "POST");

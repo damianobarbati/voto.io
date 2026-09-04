@@ -184,6 +184,27 @@ describe("Home", () => {
     expect(rankedChoices[0].textContent).toContain("Add an airport connection");
   });
 
+  it("submits the selected poll options with the saved login token", async () => {
+    localStorage.setItem(jwtStorageKey, "john-doe-token");
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (input.toString().endsWith("/votes") && init?.method === "POST") return new Response(null, { status: 200 });
+      return new Response(JSON.stringify(pollsFixture), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const router = createMemoryRouter([{ path: "/poll/:id", Component: Home }], { initialEntries: ["/poll/city-green"] });
+    render(<RouterProvider router={router} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Submit vote" }));
+    expect(await screen.findByText("Your vote was submitted.")).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/polls/city-green/votes",
+      expect.objectContaining({
+        body: JSON.stringify({ option_ids: ["city-green-option-1"] }),
+        headers: expect.objectContaining({ Authorization: "Bearer john-doe-token" }),
+        method: "POST",
+      }),
+    );
+  });
+
   it("adds the automatic no-choice option to one-choice polls", () => {
     const router = createMemoryRouter([{ path: "/poll/new", Component: Home }], { initialEntries: ["/poll/new"] });
     render(<RouterProvider router={router} />);
