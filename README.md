@@ -2,7 +2,7 @@
 
 Make your voice heard.  
 Soon (but not yet) available [here](https://votoio.duckdns.org).  
-**This project is 100% generated using AI.**  
+**This project is used to experiment with AI-driven development workflows and is 100% generated using AI.** 
 
 ## Development
 
