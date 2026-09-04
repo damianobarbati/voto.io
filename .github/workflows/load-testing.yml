@@ -46,4 +46,9 @@ jobs:
           pnpm -F api db:seed
 
       - name: Load testing
-        run: pnpm -F e2e test:load
+        run: |
+          # start api service
+          pnpm -F api start:dev &
+          timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:8080/healthcheck); do printf .; sleep 1; done'
+  
+          pnpm -F e2e test:load
