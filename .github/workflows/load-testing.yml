@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   load-test:
-    timeout-minutes: 10
+    timeout-minutes: 5
     # suggested ↓
     # runs-on: [self-hosted, linux, x64, voto-load-16core]
     runs-on: ubuntu-24.04
@@ -47,8 +47,8 @@ jobs:
 
       - name: Load testing
         run: |
-          # start api service
-          pnpm -F api start:dev &
+          # start api service, discarding all output
+          pnpm -F api start:dev > /dev/null 2>&1 &
           timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:8080/healthcheck); do printf .; sleep 1; done'
   
           pnpm -F e2e test:load
