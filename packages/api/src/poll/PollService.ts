@@ -20,6 +20,7 @@ const POLL_NOT_OPEN_ERROR = "Poll is not open for voting";
 const POLL_ACCESS_DENIED_ERROR = "You are not eligible to vote on this poll";
 const INVALID_BALLOT_ERROR = "The ballot does not match the poll voting method";
 const ALREADY_VOTED_ERROR = "You have already voted on this poll";
+const COUNTRY_REQUIRED_ERROR = "A country is required to create this poll";
 
 const hasMatchingDemographics = ({ poll, user }: { poll: PollRow; user: UserRow }) => {
   const birthDate = new Date(user.birth_date);
@@ -124,13 +125,22 @@ export default class PollService {
     if (new Set(poll.options).size !== poll.options.length) throw new HTTPException(422, { message: "Poll options must be unique" });
 
     const result = await database.transaction(async (transaction) => {
+      const user = (await transaction("users").where({ id: creatorId }).first()) as UserRow | undefined;
+      if (!user?.country) throw new HTTPException(422, { message: COUNTRY_REQUIRED_ERROR });
+      const subscription = await transaction("subscriptions")
+        .where({ user_id: creatorId, status: "active" })
+        .where("starts_at", "<=", transaction.fn.now())
+        .where((query) => query.whereNull("ends_at").orWhere("ends_at", ">", transaction.fn.now()))
+        .orderBy("starts_at", "desc")
+        .first("plan_id");
+      const countries = subscription?.plan_id === "unlimited" ? poll.countries : [user.country];
       if (poll.group_id) {
         const group = await transaction("groups").where({ id: poll.group_id, owner_id: creatorId }).first();
         if (!group) throw new HTTPException(403, { message: "Only the group owner can create a private poll" });
       }
       const { options: optionNames, ...pollInput } = poll;
       const [pollRow] = await transaction("polls")
-        .insert({ ...pollInput, creator_id: creatorId })
+        .insert({ ...pollInput, countries, creator_id: creatorId })
         .returning("*");
       const optionRows = optionNames.map((name, index) => ({ poll_id: pollRow.id, name, position: index + 1, is_no_suitable_option: false }));
       if (poll.type !== "ranked_choice") optionRows.push({ poll_id: pollRow.id, name: "No suitable option.", position: optionRows.length + 1, is_no_suitable_option: true });

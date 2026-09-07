@@ -11,4 +11,5 @@ interface ImportMetaEnv {
   readonly APP_ENV: string;
   readonly APP_NAME: string;
   readonly APP_VERSION: string;
+  readonly VITE_API_URL: string;
 }

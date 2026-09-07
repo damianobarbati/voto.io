@@ -12,6 +12,7 @@
     "serve": "npx --yes --silent --no-progress serve -s dist -p 80 --config ../serve.json"
   },
   "dependencies": {
+    "@dnd-kit/react": "^0.5.0",
     "@floating-ui/react": "^0.27.20",
     "@fontsource-variable/geist": "^5.3.0",
     "@headlessui/react": "^2.2.10",

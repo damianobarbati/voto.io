@@ -8,6 +8,7 @@ import {
   type UserLoginResponse,
   UserLoginResponseSchema,
   type UserPasswordUpdateRequest,
+  UserPlanSchema,
   type UserRegisterRequest,
   type UserRow,
   UserSchema,
@@ -33,9 +34,9 @@ const tokenPayloadSchema = z
 
 const tokenHeaderSchema = z.object({ alg: z.literal("HS256"), typ: z.literal("JWT") }).strict();
 
-const toUser = ({ password_hash: _passwordHash, ...user }: UserRow): User => user;
+const toUser = ({ password_hash: _passwordHash, ...user }: UserRow): Omit<User, "plan_id"> => user;
 
-const createToken = ({ id }: User): string => {
+const createToken = ({ id }: { id: string }): string => {
   const encodedHeader = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const encodedPayload = Buffer.from(JSON.stringify({ sub: id, iat: Math.floor(Date.now() / 1000) })).toString("base64url");
   const signature = createHmac("sha256", ENV.JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64url");
@@ -103,7 +104,13 @@ export default class AuthService {
     const id = getUserId({ authorization });
     const userRow = await UserRepository.findBy({ id });
     if (!userRow) throw new HTTPException(401, { message: INVALID_TOKEN_ERROR });
-    const result = UserSchema.parse(toUser(userRow));
+    const subscription = await database("subscriptions")
+      .where({ user_id: id, status: "active" })
+      .where("starts_at", "<=", database.fn.now())
+      .where((query) => query.whereNull("ends_at").orWhere("ends_at", ">", database.fn.now()))
+      .orderBy("starts_at", "desc")
+      .first("plan_id");
+    const result = UserSchema.parse({ ...toUser(userRow), plan_id: UserPlanSchema.parse(subscription?.plan_id ?? "free") });
     return result;
   }
 
@@ -112,7 +119,7 @@ export default class AuthService {
     const existing = await UserRepository.findBy({ email });
     if (existing && existing.id !== user.id) throw new HTTPException(409, { message: EMAIL_ALREADY_REGISTERED_ERROR });
     const [userRow] = await database("users").where({ id: user.id }).update({ email }).returning("*");
-    const result = UserSchema.parse(toUser(userRow));
+    const result = UserSchema.parse({ ...toUser(userRow), plan_id: user.plan_id });
     return result;
   }
 

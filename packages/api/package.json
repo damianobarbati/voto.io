@@ -15,9 +15,8 @@
     "db:seed": "NODE_ENV=development DEBUG='atlas:seed' NODE_OPTIONS='--no-warnings --enable-source-maps --import=amaro/transform' knex seed:run --knexfile=./database/config.ts"
   },
   "dependencies": {
-    "@faker-js/faker": "^10.6.0",
+    "amaro": "^1.1.11",
     "@hono/node-server": "^2.1.1",
-    "@vitest/coverage-v8": "^5.0.0",
     "debug": "^4.4.3",
     "envk": "^4.0.5",
     "hono": "^4.13.5",
@@ -25,9 +24,11 @@
     "knex": "^3.3.0",
     "nano-fw": "^1.0.4",
     "pg": "^8.23.0",
+    "types": "workspace:*",
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "types": "workspace:*"
+    "@faker-js/faker": "^10.6.0",
+    "@vitest/coverage-v8": "^5.0.0"
   }
 }

@@ -1,3 +1,5 @@
+import { DragDropProvider } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
 import { zodResolver } from "@hookform/resolvers/zod";
 import cx from "clsx-tw";
 import React from "react";
@@ -10,6 +12,7 @@ import {
   FiBarChart2,
   FiCheck,
   FiCheckSquare,
+  FiChevronDown,
   FiClock,
   FiCopy,
   FiDisc,
@@ -27,7 +30,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import useSWR, { mutate } from "swr";
 import useSWRMutation from "swr/mutation";
-import { type Poll as ApiPoll, PollSchema } from "types/Poll.ts";
+import { type Poll as ApiPoll, type PollCreateRequest, PollSchema } from "types/Poll.ts";
 import {
   type User,
   type UserLoginRequest,
@@ -38,7 +41,9 @@ import {
   UserRegisterRequestSchema,
   UserSchema,
 } from "types/User.ts";
+import { Footer } from "#webapp/components/Footer.tsx";
 import { type PlanName, PurchasePlans, profilePlans } from "#webapp/components/PurchasePlans.tsx";
+import { apiUrl } from "#webapp/env.ts";
 import { formatDate, formatUsd, i18n, languageStorageKey } from "#webapp/i18n.ts";
 import { jwtStorageKey, store } from "#webapp/store.ts";
 import { Spinner } from "#webapp/ui/Spinner.tsx";
@@ -123,13 +128,13 @@ const languages = [
   { value: "fr", label: "🇫🇷 Français" },
   { value: "it", label: "🇮🇹 Italiano" },
 ];
+const countryScopeOptions = ["Worldwide", "Australia (AU)", "Canada (CA)", "France (FR)", "Germany (DE)", "Italy (IT)", "Spain (ES)", "United Kingdom (GB)", "United States (US)"];
 const registrationStorageKey = "voto.registered";
 
 const groupFor = (groupId: string | undefined) => groups.find((group) => group.id === groupId);
 const memberCanAccess = (poll: Poll) => !poll.groupId || groupFor(poll.groupId)?.activeMember === true;
 const pollTurnout = (poll: Poll) => (poll.eligible === 0 ? 0 : (poll.votes / poll.eligible) * 100);
 const pollClosingDays = (poll: Poll) => new Date(poll.closesAt).getTime();
-const apiUrl = "http://localhost:8080";
 const pollVotingMethod = (type: ApiPoll["type"]): VotingMethod => {
   if (type === "single_choice") return "One choice";
   if (type === "multiple_choice") return "Multiple choice";
@@ -159,28 +164,30 @@ const getPolls = async (): Promise<Poll[]> => {
 };
 const usePolls = () => useSWR(`${apiUrl}/polls`, getPolls);
 const getUser = async ({ token }: { token: string }) => {
-  const response = await fetch("http://localhost:8080/me", { headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch(`${apiUrl}/me`, { headers: { Authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error("Unable to retrieve the user");
   const body = await response.json();
   const result = UserSchema.parse(body);
   return result;
 };
-const Field = ({ label, placeholder, textarea = false, type = "text" }: { label: string; placeholder?: string; textarea?: boolean; type?: string }) => (
+type FieldProps = { label: string; name?: string; placeholder?: string; required?: boolean; textarea?: boolean; type?: string };
+
+const Field = ({ label, name, placeholder, required = false, textarea = false, type = "text" }: FieldProps) => (
   <label className="block font-semibold text-sm">
     {label}
     {textarea ? (
-      <textarea className="mt-1.5 min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" placeholder={placeholder} />
+      <textarea className="mt-1.5 min-h-28 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" name={name} placeholder={placeholder} required={required} />
     ) : (
-      <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" placeholder={placeholder} type={type} />
+      <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" name={name} placeholder={placeholder} required={required} type={type} />
     )}
   </label>
 );
-type SelectFieldProps = { className?: string; label: string; onChange?: React.ChangeEventHandler<HTMLSelectElement>; options: string[]; value?: string };
+type SelectFieldProps = { className?: string; label: string; name?: string; onChange?: React.ChangeEventHandler<HTMLSelectElement>; options: string[]; value?: string };
 
-const SelectField = ({ className = "", label, onChange, options, value }: SelectFieldProps) => (
+const SelectField = ({ className = "", label, name, onChange, options, value }: SelectFieldProps) => (
   <label className={cx("block font-semibold text-sm", className)}>
     {label}
-    <select className={`mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal ${className}`} onChange={onChange} value={value}>
+    <select className={`mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal ${className}`} name={name} onChange={onChange} value={value}>
       {options.map((option) => (
         <option key={option}>{option}</option>
       ))}
@@ -194,6 +201,8 @@ const Header = ({ user }: HeaderProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [language, setLanguage] = React.useState(i18n.resolvedLanguage ?? i18n.language);
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
   const isLoggedIn = user !== null;
   const changeLanguage: React.ChangeEventHandler<HTMLSelectElement> = async (event) => {
@@ -211,69 +220,184 @@ const Header = ({ user }: HeaderProps) => {
   };
   return (
     <header className="border-slate-800 border-b bg-slate-950 px-4 py-3 shadow-lg sm:px-7">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
           <Link className="font-bold text-white text-xl tracking-tight no-underline" to="/">
             voto<span className="text-blue-500">.</span>io
           </Link>
-          <select aria-label={t("nav.language")} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-white" onChange={changeLanguage} value={language}>
+          <nav aria-label="Primary navigation" className="hidden items-center gap-5 text-sm md:flex">
+            <Link className="text-slate-300 no-underline hover:text-white" to="/poll/list">
+              Explore
+            </Link>
+            {isLoggedIn ? (
+              <>
+                <Link className="text-slate-300 no-underline hover:text-white" to="/my-polls">
+                  {t("nav.polls")}
+                </Link>
+                <Link className="text-slate-300 no-underline hover:text-white" to="/my-groups">
+                  {t("nav.groups")}
+                </Link>
+              </>
+            ) : (
+              <Link className="text-slate-300 no-underline hover:text-white" to="/plans">
+                {t("ui.plans")}
+              </Link>
+            )}
+          </nav>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="relative">
+            <button
+              aria-expanded={isCreateMenuOpen}
+              className="inline-flex items-center gap-1 rounded-app bg-blue-600 px-3 py-2 font-bold text-white hover:bg-blue-500"
+              onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+              type="button"
+            >
+              <FiPlus aria-hidden="true" />
+              <span className="hidden sm:inline">Create</span>
+              <FiChevronDown aria-hidden="true" className="hidden sm:block" />
+            </button>
+            {isCreateMenuOpen && (
+              <div className="absolute top-full right-0 z-20 mt-2 w-44 rounded-app border border-slate-200 bg-white p-2 shadow-lg">
+                <Link
+                  className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100"
+                  onClick={() => setIsCreateMenuOpen(false)}
+                  to="/poll/new"
+                >
+                  {t("nav.createPoll")}
+                </Link>
+                <Link
+                  className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100"
+                  onClick={() => setIsCreateMenuOpen(false)}
+                  to="/live-poll/new"
+                >
+                  {t("nav.createLivePoll")}
+                </Link>
+              </div>
+            )}
+          </div>
+          <select
+            aria-label={t("nav.language")}
+            className="hidden rounded-app border border-slate-700 bg-slate-900 px-2 py-1 text-white sm:block"
+            onChange={changeLanguage}
+            value={language}
+          >
             {languages.map((language) => (
               <option key={language.value} value={language.value}>
                 {language.label}
               </option>
             ))}
           </select>
-        </div>
-        <nav className="flex items-center gap-3 text-sm">
-          <Link className="hidden rounded-full bg-blue-600 px-3 py-2 font-bold text-white no-underline hover:bg-blue-500 sm:block" to="/poll/new">
-            {t("nav.createPoll")}
-          </Link>
-          <Link className="hidden text-slate-300 no-underline hover:text-white md:block" to="/live-poll/new">
-            {t("nav.createLivePoll")}
-          </Link>
-          <Link className="hidden text-slate-300 no-underline hover:text-white sm:block" to="/poll/list">
-            {t("nav.explorePolls")}
-          </Link>
           {isLoggedIn ? (
-            <div className="relative" onMouseEnter={() => setIsProfileMenuOpen(true)} onMouseLeave={() => setIsProfileMenuOpen(false)}>
-              <button className="rounded-full bg-blue-600 px-3 py-2 font-bold text-white" onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} type="button">
+            <div className="relative hidden sm:block">
+              <button
+                aria-expanded={isProfileMenuOpen}
+                className="rounded-app border border-slate-600 px-3 py-2 font-bold text-white hover:border-white"
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                type="button"
+              >
                 {user.name}
               </button>
               {isProfileMenuOpen && (
-                <div className="absolute top-full right-0 z-10 w-36 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-polls">
+                <div className="absolute top-full right-0 z-20 mt-2 w-44 rounded-app border border-slate-200 bg-white p-2 shadow-lg">
+                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-polls">
                     {t("nav.polls")}
                   </Link>
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-groups">
+                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-groups">
                     {t("nav.groups")}
                   </Link>
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-subscription">
+                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-subscription">
                     {t("nav.subscription")}
                   </Link>
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-profile">
+                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-profile">
                     {t("nav.profile")}
                   </Link>
-                  <Link className="block rounded-lg px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-settings">
+                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-settings">
                     {t("nav.settings")}
                   </Link>
-                  <button className="w-full rounded-lg px-3 py-2 text-left font-semibold text-red-700 hover:bg-red-50" onClick={logout} type="button">
+                  <button className="w-full rounded-app px-3 py-2 text-left font-semibold text-red-700 hover:bg-red-50" onClick={logout} type="button">
                     {t("nav.logout")}
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            <Link className="rounded-full border border-slate-600 px-3 py-2 font-bold text-white no-underline hover:border-white" to="/login">
+            <Link className="hidden rounded-app border border-slate-600 px-3 py-2 font-bold text-white no-underline hover:border-white sm:block" to="/login">
               {t("nav.login")}
             </Link>
           )}
-        </nav>
+          <button
+            aria-expanded={isMobileMenuOpen}
+            aria-label="Open navigation"
+            className="rounded-app p-2 text-white hover:bg-slate-800 md:hidden"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            type="button"
+          >
+            {isMobileMenuOpen ? <FiX /> : <FiMenu />}
+          </button>
+        </div>
+        {isMobileMenuOpen && (
+          <nav aria-label="Mobile navigation" className="absolute top-full right-0 left-0 z-10 border-slate-800 border-t bg-slate-950 p-4 shadow-lg md:hidden">
+            <div className="grid gap-1">
+              <Link className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800" onClick={() => setIsMobileMenuOpen(false)} to="/poll/list">
+                Explore
+              </Link>
+              {isLoggedIn ? (
+                <>
+                  <Link className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800" onClick={() => setIsMobileMenuOpen(false)} to="/my-polls">
+                    {t("nav.polls")}
+                  </Link>
+                  <Link className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800" onClick={() => setIsMobileMenuOpen(false)} to="/my-groups">
+                    {t("nav.groups")}
+                  </Link>
+                  <Link
+                    className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    to="/my-subscription"
+                  >
+                    {t("nav.subscription")}
+                  </Link>
+                  <Link className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800" onClick={() => setIsMobileMenuOpen(false)} to="/my-profile">
+                    {t("nav.profile")}
+                  </Link>
+                  <Link className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800" onClick={() => setIsMobileMenuOpen(false)} to="/my-settings">
+                    {t("nav.settings")}
+                  </Link>
+                  <button className="rounded-app px-3 py-2 text-left font-semibold text-red-300 hover:bg-slate-800" onClick={logout} type="button">
+                    {t("nav.logout")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800" onClick={() => setIsMobileMenuOpen(false)} to="/plans">
+                    {t("ui.plans")}
+                  </Link>
+                  <Link className="rounded-app px-3 py-2 font-semibold text-slate-200 no-underline hover:bg-slate-800" onClick={() => setIsMobileMenuOpen(false)} to="/login">
+                    {t("nav.login")}
+                  </Link>
+                </>
+              )}
+              <select
+                aria-label={t("nav.language")}
+                className="mt-2 rounded-app border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                onChange={changeLanguage}
+                value={language}
+              >
+                {languages.map((language) => (
+                  <option key={language.value} value={language.value}>
+                    {language.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </nav>
+        )}
       </div>
     </header>
   );
 };
 const LockBadge = ({ group }: { group: Group }) => (
-  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-bold text-blue-800 text-xs">
+  <span className="inline-flex items-center gap-1 rounded-app bg-blue-50 px-2.5 py-1 font-bold text-blue-800 text-xs">
     <FiLock /> Exclusive to {group.name}
   </span>
 );
@@ -281,12 +405,12 @@ const VotingMethodIcon = ({ votingMethod }: { votingMethod: VotingMethod }) => {
   const label = votingMethod;
   return (
     <details className="group relative shrink-0">
-      <summary aria-label={label} className="list-none rounded-md p-1 text-blue-700 hover:bg-blue-50 [&::-webkit-details-marker]:hidden">
+      <summary aria-label={label} className="list-none rounded-app p-1 text-blue-700 hover:bg-blue-50 [&::-webkit-details-marker]:hidden">
         {votingMethod === "One choice" && <FiDisc aria-hidden="true" />}
         {votingMethod === "Multiple choice" && <FiCheckSquare aria-hidden="true" />}
         {votingMethod === "Ranked choice" && <FiList aria-hidden="true" />}
       </summary>
-      <span className="absolute top-full right-0 z-10 mt-1 hidden w-max max-w-40 rounded-md bg-slate-950 px-2 py-1 text-center font-semibold text-white text-xs shadow-lg group-open:block md:group-hover:block md:group-open:hidden">
+      <span className="absolute top-full right-0 z-10 mt-1 hidden w-max max-w-40 rounded-app bg-slate-950 px-2 py-1 text-center font-semibold text-white text-xs shadow-lg group-open:block md:group-hover:block md:group-open:hidden">
         {label}
       </span>
     </details>
@@ -299,7 +423,7 @@ const PollCard = ({ poll }: { poll: Poll }) => {
   const group = groupFor(poll.groupId);
   const turnout = pollTurnout(poll).toFixed(1);
   return (
-    <article className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="flex min-w-0 flex-col rounded-app border border-slate-200 bg-white p-5 shadow-sm">
       {group && (
         <div className="mb-3">
           <LockBadge group={group} />
@@ -331,10 +455,10 @@ const PollCard = ({ poll }: { poll: Poll }) => {
 type EmptyTabProps = { action: string; actionTo: string; message: string };
 
 const EmptyTab = ({ action, actionTo, message }: EmptyTabProps) => (
-  <div className="col-span-full rounded-xl border border-slate-200 border-dashed bg-slate-50 px-5 py-10 text-center">
+  <div className="col-span-full rounded-app border border-slate-200 border-dashed bg-slate-50 px-5 py-10 text-center">
     <FiUsers className="mx-auto text-2xl text-slate-400" />
     <p className="mt-3 font-semibold text-slate-700">{message}</p>
-    <Link className="mt-4 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to={actionTo}>
+    <Link className="mt-4 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to={actionTo}>
       {action}
     </Link>
   </div>
@@ -344,22 +468,119 @@ const Landing = () => {
   const { data: polls = [], isLoading } = usePolls();
   return (
     <>
-      <section className="bg-[#071a3d] px-6 py-6 text-white sm:px-7 sm:py-12">
+      <section className="bg-app-text px-6 py-12 text-white sm:px-7 sm:py-20">
         <div className="mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-2">
           <div>
+            <p className="font-bold text-blue-200 text-sm tracking-wider">{t("landing.eyebrow")}</p>
             <h1 className="mt-3 max-w-3xl font-bold text-5xl text-white tracking-tight lg:text-7xl">{t("landing.title")}</h1>
-            <p className="mt-5 max-w-xl text-slate-300">{t("landing.description")}</p>
+            <p className="mt-5 max-w-xl text-slate-300">Create trusted public, private, and live polls. Set eligibility rules, collect votes, and share clear results.</p>
             <div className="mt-8 flex gap-3">
-              <Link className="rounded-full bg-blue-500 px-5 py-3 font-bold text-white no-underline hover:bg-blue-400" to="/poll/list">
-                {t("landing.poll")}
+              <Link className="rounded-app bg-blue-500 px-5 py-3 font-bold text-white no-underline hover:bg-blue-400" to="/register">
+                {t("landing.primary")}
               </Link>
-              <Link className="rounded-full border border-slate-600 px-5 py-3 font-bold text-white no-underline" to="/poll/list">
-                {t("landing.vote")}
+              <Link className="rounded-app border border-slate-600 px-5 py-3 font-bold text-white no-underline hover:border-white" to="/plans">
+                {t("landing.plans")}
               </Link>
             </div>
+            <p className="mt-4 text-slate-400 text-sm">Start free. Upgrade when your decisions need more reach.</p>
           </div>
-          <div aria-label={t("landing.imagePlaceholder")} className="flex min-h-72 items-center justify-center border border-blue-400/40 bg-gray-400 p-6 shadow-2xl" role="img">
-            <FiImage className="text-6xl text-blue-200" />
+          <div className="rounded-app border border-blue-400/40 bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-blue-200 text-sm tracking-wider">LIVE DECISION</p>
+              <span className="rounded-app bg-blue-500 px-2.5 py-1 font-bold text-xs">OPEN</span>
+            </div>
+            <h2 className="mt-5 font-bold text-2xl text-white">Which project should receive the next budget?</h2>
+            <div className="mt-6 space-y-3">
+              {["Plant 1,000 new trees", "Create community gardens", "Build a small urban forest"].map((option, index) => (
+                <div className="rounded-app border border-slate-700 bg-slate-800 px-4 py-3" key={option}>
+                  <div className="flex items-center justify-between gap-4">
+                    <span>{option}</span>
+                    <strong className="text-blue-200">{[56, 29, 15][index]}%</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-5 text-slate-400 text-sm">1,248 verified votes · 72% turnout</p>
+          </div>
+        </div>
+      </section>
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
+        <div className="grid gap-4 text-center sm:grid-cols-4">
+          {[
+            ["Public polls", "Invite anyone to take part"],
+            ["Private groups", "Decide with verified members"],
+            ["Live polls", "Make decisions in the room"],
+            ["Clear results", "Track votes and turnout"],
+          ].map(([title, description]) => (
+            <div className="rounded-app border border-slate-200 bg-white p-4" key={title}>
+              <p className="font-bold text-slate-900">{title}</p>
+              <p className="mt-1 text-slate-600 text-sm">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
+        <div className="max-w-2xl">
+          <p className="font-bold text-blue-700 text-sm tracking-wider">BUILT FOR PARTICIPATION</p>
+          <h2 className="mt-2 font-bold text-3xl lg:text-4xl">One place for every kind of decision.</h2>
+          <p className="mt-3 text-slate-600">Choose the right voting format, reach the right people, and turn participation into a result that everyone can understand.</p>
+        </div>
+        <div className="mt-7 grid gap-4 md:grid-cols-3">
+          <article className="rounded-app border border-slate-200 bg-white p-5 shadow-sm">
+            <FiUsers className="text-2xl text-blue-700" />
+            <h3 className="mt-4 font-bold text-xl">Public decisions</h3>
+            <p className="mt-2 text-slate-600 text-sm">Publish a question, invite your community, and keep every response easy to follow.</p>
+          </article>
+          <article className="rounded-app border border-slate-200 bg-white p-5 shadow-sm">
+            <FiLock className="text-2xl text-blue-700" />
+            <h3 className="mt-4 font-bold text-xl">Private organisation voting</h3>
+            <p className="mt-2 text-slate-600 text-sm">Limit participation to verified group members and apply the eligibility rules your decision needs.</p>
+          </article>
+          <article className="rounded-app border border-slate-200 bg-white p-5 shadow-sm">
+            <FiSmartphone className="text-2xl text-blue-700" />
+            <h3 className="mt-4 font-bold text-xl">Live voting</h3>
+            <p className="mt-2 text-slate-600 text-sm">Bring a room to a decision with quick, phone-first polls and visible turnout.</p>
+          </article>
+        </div>
+      </section>
+      <section className="bg-slate-100 px-4 py-12 sm:px-7">
+        <div className="mx-auto max-w-6xl">
+          <p className="font-bold text-blue-700 text-sm tracking-wider">HOW IT WORKS</p>
+          <h2 className="mt-2 font-bold text-3xl lg:text-4xl">From question to decision in three steps.</h2>
+          <div className="mt-7 grid gap-4 md:grid-cols-3">
+            {[
+              ["01", "Create", "Set the question, choices, and voting method."],
+              ["02", "Reach the right voters", "Share publicly, invite a group, or set eligibility rules."],
+              ["03", "Act on the result", "Follow turnout and share a clear final outcome."],
+            ].map(([number, title, description]) => (
+              <div className="rounded-app bg-white p-5" key={number}>
+                <p className="font-bold text-blue-700 text-sm">{number}</p>
+                <h3 className="mt-3 font-bold text-xl">{title}</h3>
+                <p className="mt-2 text-slate-600 text-sm">{description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
+        <div className="rounded-app bg-slate-950 p-6 text-white sm:p-10">
+          <p className="font-bold text-blue-200 text-sm tracking-wider">DECISIONS PEOPLE CAN TRUST</p>
+          <div className="mt-5 grid gap-5 md:grid-cols-3">
+            <div>
+              <FiCheck className="text-blue-300 text-xl" />
+              <h3 className="mt-3 font-bold text-lg text-white">Eligibility rules</h3>
+              <p className="mt-1 text-slate-300 text-sm">Target voters by group, location, and profile criteria.</p>
+            </div>
+            <div>
+              <FiCheck className="text-blue-300 text-xl" />
+              <h3 className="mt-3 font-bold text-lg text-white">Protected participation</h3>
+              <p className="mt-1 text-slate-300 text-sm">Keep high-value decisions within the right community.</p>
+            </div>
+            <div>
+              <FiBarChart2 className="text-blue-300 text-xl" />
+              <h3 className="mt-3 font-bold text-lg text-white">Clear reporting</h3>
+              <p className="mt-1 text-slate-300 text-sm">See turnout, votes, and outcomes without extra work.</p>
+            </div>
           </div>
         </div>
       </section>
@@ -416,11 +637,11 @@ const PollList = () => {
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Polls open to you</h1>
-        <Link className="hidden items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline sm:inline-flex" to="/poll/new">
+        <Link className="hidden items-center gap-2 rounded-app bg-blue-700 px-4 py-3 font-bold text-white no-underline sm:inline-flex" to="/poll/new">
           <FiPlus /> Create poll
         </Link>
       </div>
-      <label className="mt-7 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3">
+      <label className="mt-7 flex items-center gap-2 rounded-app border border-slate-300 bg-white px-3">
         <FiSearch className="text-slate-400" />
         <input aria-label="Search polls" className="grow border-0 py-3 outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Search polls" value={query} />
       </label>
@@ -428,7 +649,7 @@ const PollList = () => {
         <p className="mr-2 text-slate-500 text-sm">{visiblePolls.length} open polls</p>
         <button
           aria-pressed={showMyGroups}
-          className={`rounded-full border px-3 py-1.5 text-sm ${showMyGroups ? "border-blue-600 bg-blue-50 font-bold text-blue-800" : "border-slate-300 bg-white"}`}
+          className={`rounded-app border px-3 py-1.5 text-sm ${showMyGroups ? "border-blue-600 bg-blue-50 font-bold text-blue-800" : "border-slate-300 bg-white"}`}
           onClick={() => setShowMyGroups(!showMyGroups)}
           type="button"
         >
@@ -453,26 +674,73 @@ const PollList = () => {
 };
 
 const CreatePoll = () => {
+  const navigate = useNavigate();
+  const user = store.getState().user;
   const [options, setOptions] = React.useState(["", ""]);
   const [method, setMethod] = React.useState<VotingMethod>("One choice");
   const [rankedAlgorithm, setRankedAlgorithm] = React.useState<RankedAlgorithm>("irv");
   const [groupId, setGroupId] = React.useState("Public");
+  const [countryScope, setCountryScope] = React.useState("Worldwide");
+  const [error, setError] = React.useState("");
   const automaticNoChoice = method !== "Ranked choice";
   const ownedGroups = groups.filter((group) => group.owner);
+  const isUnlimited = user?.plan_id === "unlimited";
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const token = localStorage.getItem(jwtStorageKey);
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    const fields = new FormData(event.currentTarget);
+    const country = countryScope.match(/\(([A-Z]{2})\)$/)?.[1];
+    const poll: PollCreateRequest = {
+      name: String(fields.get("name") ?? "").trim(),
+      description: String(fields.get("description") ?? "").trim(),
+      opens_at: new Date(String(fields.get("opens_at"))).toISOString(),
+      closes_at: new Date(String(fields.get("closes_at"))).toISOString(),
+      type: method === "One choice" ? "single_choice" : method === "Multiple choice" ? "multiple_choice" : "ranked_choice",
+      ranked_method: method === "Ranked choice" ? rankedAlgorithm : null,
+      gender_restriction: fields.get("gender") === "Women" ? "f" : fields.get("gender") === "Men" ? "m" : null,
+      age_min: null,
+      age_max: null,
+      gross_income_min: fields.get("income") ? Number(fields.get("income")) : null,
+      gross_income_max: null,
+      cities: String(fields.get("cities") ?? "")
+        .split(",")
+        .map((city) => city.trim())
+        .filter(Boolean),
+      countries: isUnlimited ? (country ? [country] : []) : user?.country ? [user.country] : [],
+      group_id: groupId === "Public" ? null : groupId,
+      is_live: false,
+      options: options.map((option) => option.trim()).filter(Boolean),
+    };
+    const response = await fetch(`${apiUrl}/polls`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(poll),
+    });
+    if (!response.ok) {
+      setError("Unable to publish poll");
+      return;
+    }
+    const createdPoll = PollSchema.parse(await response.json());
+    navigate(`/poll/${createdPoll.id}`);
+  };
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-7">
       <Link className="font-bold text-slate-500 text-sm" to="/poll/list">
         ← Back to polls
       </Link>
       <h1 className="mt-5 font-bold text-3xl lg:text-5xl">Create a poll</h1>
-      <form className="mt-7 space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <form className="mt-7 space-y-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7" onSubmit={submit}>
         <fieldset className="space-y-4">
           {/*<legend className="font-bold text-lg">Poll details</legend>*/}
-          <Field label="Poll name" placeholder="e.g. Q4 strategic priorities" />
-          <Field label="Description" placeholder="Essential decision context" textarea />
+          <Field label="Poll name" name="name" placeholder="e.g. Q4 strategic priorities" required />
+          <Field label="Description" name="description" placeholder="Essential decision context" required textarea />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Opening date" type="datetime-local" />
-            <Field label="Closing date" type="datetime-local" />
+            <Field label="Opening date" name="opens_at" required type="datetime-local" />
+            <Field label="Closing date" name="closes_at" required type="datetime-local" />
           </div>
         </fieldset>
         <fieldset>
@@ -500,7 +768,7 @@ const CreatePoll = () => {
             {options.map((option, index) => (
               <label className="flex gap-2" key={`option-${index}`}>
                 <input
-                  className="grow rounded-xl border border-slate-300 px-3 py-2.5"
+                  className="grow rounded-app border border-slate-300 px-3 py-2.5"
                   onChange={(event) => setOptions(options.map((value, optionIndex) => (optionIndex === index ? event.target.value : value)))}
                   placeholder={`Option ${index + 1}`}
                   value={option}
@@ -519,7 +787,7 @@ const CreatePoll = () => {
             ))}
           </div>
           {automaticNoChoice && (
-            <div className="mt-2 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-900 text-sm">
+            <div className="mt-2 flex items-center gap-2 rounded-app border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-900 text-sm">
               <FiCheck /> No suitable option. <span className="ml-auto font-bold text-xs">Automatic</span>
             </div>
           )}
@@ -534,6 +802,7 @@ const CreatePoll = () => {
           {/*<legend className="font-bold text-lg">Access control</legend>*/}
           <SelectField
             label="Who can view and vote"
+            name="group"
             onChange={(event) => setGroupId(event.target.value === "Public" ? "Public" : (ownedGroups.find((group) => group.name === event.target.value)?.id ?? "Public"))}
             options={["Public", ...ownedGroups.map((group) => group.name)]}
             value={groupId === "Public" ? "Public" : groupFor(groupId)?.name}
@@ -543,13 +812,24 @@ const CreatePoll = () => {
         <fieldset>
           {/*<legend className="font-bold text-lg">Eligible voters</legend>*/}
           <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField label="Gender" options={["Any gender", "Women", "Men"]} />
-            <Field label="Minimum income" type="number" />
-            <Field label="City or cities" />
-            <Field label="Country" />
+            <SelectField label="Gender" name="gender" options={["Any gender", "Women", "Men"]} />
+            <Field label="Minimum income" name="income" type="number" />
+            <Field label="City or cities" name="cities" />
+            {isUnlimited ? (
+              <SelectField
+                label="Country scope"
+                name="country_scope"
+                onChange={(event) => setCountryScope(event.target.value)}
+                options={countryScopeOptions}
+                value={countryScope}
+              />
+            ) : (
+              <p className="self-end text-slate-500 text-sm">Country: {user?.country ?? "Not specified"}</p>
+            )}
           </div>
         </fieldset>
-        <button className="w-full rounded-full bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-600" type="submit">
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+        <button className="w-full rounded-app bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-600" type="submit">
           Publish poll
         </button>
       </form>
@@ -559,16 +839,53 @@ const CreatePoll = () => {
 
 const AccessDenied = ({ group }: { group: Group }) => (
   <main className="mx-auto max-w-xl px-4 py-20 text-center">
-    <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-red-50 text-red-700">
+    <div className="mx-auto flex size-14 items-center justify-center rounded-app bg-red-50 text-red-700">
       <FiLock className="text-2xl" />
     </div>
     <h1 className="mt-5 font-bold text-3xl">Access denied</h1>
     <p className="mt-3 text-slate-600">This poll is restricted to members of {group.name}.</p>
-    <Link className="mt-7 inline-block rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/my-groups">
+    <Link className="mt-7 inline-block rounded-app bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/my-groups">
       View your groups
     </Link>
   </main>
 );
+
+type RankedOptionProps = {
+  index: number;
+  onMove: ({ source, target }: { source: string; target: string }) => void;
+  option: string;
+  options: string[];
+};
+
+const RankedOption = ({ index, onMove, option, options }: RankedOptionProps) => {
+  const { handleRef, isDragging, ref } = useSortable({
+    group: "ranked-options",
+    id: option,
+    index,
+    transition: { duration: 220, easing: "cubic-bezier(0.25, 1, 0.5, 1)", idle: true },
+  });
+  return (
+    <div className={`flex items-center gap-3 rounded-app border p-3 ${isDragging ? "border-blue-600 bg-blue-50 opacity-60" : "border-slate-200"}`} ref={ref}>
+      <button aria-label={`Reorder ${option}`} className="cursor-grab text-slate-400 active:cursor-grabbing" ref={handleRef} type="button">
+        <FiMenu />
+      </button>
+      <span className="flex size-7 items-center justify-center rounded-app bg-blue-50 font-bold text-blue-700 text-sm">{index + 1}</span>
+      <span className="grow">{option}</span>
+      <button aria-label={`Move ${option} up`} disabled={index === 0} onClick={() => index > 0 && onMove({ source: option, target: options[index - 1] })} type="button">
+        <FiArrowUp />
+      </button>
+      <button
+        aria-label={`Move ${option} down`}
+        disabled={index === options.length - 1}
+        onClick={() => index < options.length - 1 && onMove({ source: option, target: options[index + 1] })}
+        type="button"
+      >
+        <FiArrowDown />
+      </button>
+    </div>
+  );
+};
+
 const PollDetail = () => {
   const { id } = useParams();
   const { data: polls } = usePolls();
@@ -579,7 +896,6 @@ const PollDetail = () => {
   const [single, setSingle] = React.useState(poll.options[0]);
   const [many, setMany] = React.useState<string[]>([]);
   const [ranked, setRanked] = React.useState(poll.options);
-  const [dragged, setDragged] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState("");
   const [isSubmitted, setIsSubmitted] = React.useState(false);
@@ -635,7 +951,7 @@ const PollDetail = () => {
           {group && <LockBadge group={group} />}
           <h1 className="mt-4 font-bold text-3xl lg:text-5xl">{poll.title}</h1>
           <p className="mt-3 text-slate-600">{poll.description}</p>
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mt-6 rounded-app border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2 font-bold">
               <FiCheck className="text-blue-600" />{" "}
               {poll.votingMethod === "One choice" ? "Choose one option" : poll.votingMethod === "Multiple choice" ? "Choose all that apply" : "Rank options by preference"}
@@ -643,14 +959,14 @@ const PollDetail = () => {
             <div className="mt-4 space-y-3">
               {poll.votingMethod === "One choice" &&
                 poll.options.map((option) => (
-                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-3 has-checked:border-blue-600 has-checked:bg-blue-50" key={option}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-app border border-slate-200 p-3 has-checked:border-blue-600 has-checked:bg-blue-50" key={option}>
                     <input checked={single === option} name="vote" onChange={() => setSingle(option)} type="radio" />
                     {option}
                   </label>
                 ))}
               {poll.votingMethod === "Multiple choice" &&
                 poll.options.map((option) => (
-                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-3 has-checked:border-blue-600 has-checked:bg-blue-50" key={option}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-app border border-slate-200 p-3 has-checked:border-blue-600 has-checked:bg-blue-50" key={option}>
                     <input
                       checked={many.includes(option)}
                       onChange={() => {
@@ -667,50 +983,30 @@ const PollDetail = () => {
                     {option}
                   </label>
                 ))}
-              {poll.votingMethod === "Ranked choice" &&
-                ranked.map((option, index) => (
-                  <div
-                    className={`flex cursor-grab items-center gap-3 rounded-xl border p-3 ${dragged === option ? "border-blue-600 bg-blue-50" : "border-slate-200"}`}
-                    draggable
-                    key={option}
-                    onDragEnd={() => setDragged("")}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData("text/plain", option);
-                      setDragged(option);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      move({ source: dragged || event.dataTransfer.getData("text/plain"), target: option });
-                    }}
-                  >
-                    <FiMenu className="text-slate-400" />
-                    <span className="flex size-7 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-700 text-sm">{index + 1}</span>
-                    <span className="grow">{option}</span>
-                    <button aria-label={`Move ${option} up`} disabled={index === 0} onClick={() => index > 0 && move({ source: option, target: ranked[index - 1] })} type="button">
-                      <FiArrowUp />
-                    </button>
-                    <button
-                      aria-label={`Move ${option} down`}
-                      disabled={index === ranked.length - 1}
-                      onClick={() => index < ranked.length - 1 && move({ source: option, target: ranked[index + 1] })}
-                      type="button"
-                    >
-                      <FiArrowDown />
-                    </button>
-                  </div>
-                ))}
+              {poll.votingMethod === "Ranked choice" && (
+                <DragDropProvider
+                  onDragEnd={({ canceled, operation }) => {
+                    const source = operation.source?.id;
+                    const target = operation.target?.id;
+                    if (!canceled && typeof source === "string" && typeof target === "string") move({ source, target });
+                  }}
+                >
+                  {ranked.map((option, index) => (
+                    <RankedOption index={index} key={option} onMove={move} option={option} options={ranked} />
+                  ))}
+                </DragDropProvider>
+              )}
             </div>
             <div className="mt-5 flex gap-3">
               <button
-                className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
                 disabled={isSubmitting || isSubmitted}
                 onClick={submitVote}
                 type="button"
               >
                 Submit vote
               </button>
-              <Link className="rounded-full border border-slate-300 px-5 py-3 font-bold text-slate-800 text-sm no-underline" to={`/poll/${poll.id}/stats`}>
+              <Link className="rounded-app border border-slate-300 px-5 py-3 font-bold text-slate-800 text-sm no-underline" to={`/poll/${poll.id}/stats`}>
                 See results
               </Link>
             </div>
@@ -718,7 +1014,7 @@ const PollDetail = () => {
             {submitError && <p className="mt-3 font-semibold text-red-700 text-sm">{submitError}</p>}
           </div>
         </section>
-        <aside className="rounded-2xl bg-slate-100 p-5">
+        <aside className="rounded-app bg-slate-100 p-5">
           <h2 className="font-bold text-lg">Poll facts</h2>
           <dl className="mt-4 space-y-4 text-sm">
             <div>
@@ -747,7 +1043,7 @@ const PollDetail = () => {
 const DemographicChart = ({ data, title }: { data: Range[]; title: string }) => {
   const { t } = useTranslation();
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+    <section className="rounded-app border border-slate-200 bg-white p-5">
       <h2 className="font-bold text-lg">{title}</h2>
       <div className="mt-4 h-72">
         <ResponsiveContainer height="100%" width="100%">
@@ -757,7 +1053,7 @@ const DemographicChart = ({ data, title }: { data: Range[]; title: string }) => 
             <Tooltip formatter={(value) => [`${value}%`, t("ui.turnout")] as [string, string]} />
             <Bar dataKey="percentage" radius={[0, 5, 5, 0]}>
               {data.map((item) => (
-                <Cell fill="#2563eb" key={item.range} />
+                <Cell fill="var(--color-app-primary-hover)" key={item.range} />
               ))}
             </Bar>
           </BarChart>
@@ -778,8 +1074,8 @@ const ChoiceResults = () => (
               {result.percentage}% · {result.votes}
             </strong>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-blue-600" style={{ width: `${result.percentage}%` }} />
+          <div className="mt-2 h-2 overflow-hidden rounded-app bg-slate-100">
+            <div className="h-full rounded-app bg-blue-600" style={{ width: `${result.percentage}%` }} />
           </div>
         </div>
       ))}
@@ -825,7 +1121,7 @@ const RankedChoiceResults = ({ algorithm }: { algorithm: RankedAlgorithm }) => {
   }
   return (
     <>
-      <div className="rounded-xl bg-blue-50 p-4 text-blue-950">
+      <div className="rounded-app bg-blue-50 p-4 text-blue-950">
         <p className="font-bold">Winner: Extend route N6</p>
         <p className="mt-1 text-sm">52.4% after round 3</p>
       </div>
@@ -867,7 +1163,7 @@ const ResultsPage = () => {
         <Metric icon={<FiClock />} label="Time remaining" value={poll.closes} />
         <Metric icon={<FiCheck />} label="Abstention rate" value={`${abstentionRate.toFixed(1)}%`} />
       </section>
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+      <section className="mt-6 rounded-app border border-slate-200 bg-white p-5">
         {poll.votingMethod === "One choice" && <ChoiceResults />}
         {poll.votingMethod === "Multiple choice" && <MultipleChoiceResults />}
         {poll.votingMethod === "Ranked choice" && <RankedChoiceResults algorithm={poll.rankedAlgorithm ?? "irv"} />}
@@ -882,7 +1178,7 @@ const ResultsPage = () => {
   );
 };
 const Metric = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-5">
+  <div className="rounded-app border border-slate-200 bg-white p-5">
     <div className="flex items-center gap-2 text-slate-500 text-sm">
       {icon}
       {label}
@@ -894,7 +1190,7 @@ const Metric = ({ icon, label, value }: { icon: React.ReactNode; label: string; 
 const liveQrSquares = [0, 1, 2, 4, 6, 8, 10, 12, 13, 15, 18, 20, 22, 24, 27, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 47, 48];
 
 const LiveQr = () => (
-  <div aria-label="Live poll QR code" className="shrink-0 rounded-xl bg-white p-2 shadow-lg" role="img">
+  <div aria-label="Live poll QR code" className="shrink-0 rounded-app bg-white p-2 shadow-lg" role="img">
     <div className="grid grid-cols-7 gap-px" style={{ width: 84 }}>
       {Array.from({ length: 49 }, (_, index) => (
         <span className={liveQrSquares.includes(index) ? "aspect-square bg-slate-950" : "aspect-square bg-slate-100"} key={index} />
@@ -943,7 +1239,7 @@ const cityRows: CityRow[] = [
 ];
 
 const SplitBar = ({ men, women }: SplitBarProps) => (
-  <div className="flex h-7 overflow-hidden rounded-md text-center font-bold text-[10px] text-slate-900">
+  <div className="flex h-7 overflow-hidden rounded-app text-center font-bold text-[10px] text-slate-900">
     <span className="flex items-center justify-center bg-sky-300" style={{ width: `${men}%` }}>
       {men}%
     </span>
@@ -969,8 +1265,8 @@ const CityBars = ({ rows }: CityBarsProps) => (
     {rows.map((row) => (
       <div className="grid grid-cols-[4.5rem_1fr_2rem] items-center gap-2" key={row.label}>
         <span className="truncate font-medium text-slate-600 text-xs">{row.label}</span>
-        <div className="h-5 overflow-hidden rounded-md bg-slate-100">
-          <div className="h-full rounded-md bg-blue-600" style={{ width: `${row.percentage}%` }} />
+        <div className="h-5 overflow-hidden rounded-app bg-slate-100">
+          <div className="h-full rounded-app bg-blue-600" style={{ width: `${row.percentage}%` }} />
         </div>
         <span className="text-right font-bold text-xs">{row.percentage}%</span>
       </div>
@@ -1032,7 +1328,7 @@ const LivePollDeviceGate = ({ message }: { message: string }) => (
     <FiSmartphone className="size-16 text-blue-700" />
     <h1 className="mt-5 font-bold text-3xl">Device not supported</h1>
     <p className="mt-3 text-slate-600">{message}</p>
-    <Link className="mt-7 rounded-full bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/">
+    <Link className="mt-7 rounded-app bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/">
       Back to voto.io
     </Link>
   </main>
@@ -1060,6 +1356,11 @@ const LivePoll = () => {
   if (viewportWidth < desktopMinimumWidth) return <LivePollDeviceGate message="Live poll creation works only on a computer with a screen at least 1280px wide." />;
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-7">
+      {id === "new" && (
+        <Link className="inline-flex font-bold text-blue-700 no-underline hover:text-blue-900" to="/">
+          Back to voto.io
+        </Link>
+      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-bold text-blue-700 text-sm tracking-wider">LIVE POLL</p>
@@ -1078,7 +1379,7 @@ const LivePoll = () => {
       </div>
       {status === "setup" && (
         <form
-          className="mt-7 max-w-3xl space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"
+          className="mt-7 max-w-3xl space-y-5 rounded-app border border-slate-200 bg-white p-5 sm:p-7"
           onSubmit={async (event) => {
             event.preventDefault();
             const token = localStorage.getItem(jwtStorageKey);
@@ -1103,14 +1404,14 @@ const LivePoll = () => {
         >
           <label className="block font-semibold text-sm">
             Question
-            <input className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal" onChange={(event) => setQuestion(event.target.value)} value={question} />
+            <input className="mt-1.5 w-full rounded-app border border-slate-300 px-3 py-2.5 font-normal" onChange={(event) => setQuestion(event.target.value)} value={question} />
           </label>
           <div>
             <p className="font-bold text-sm">Options</p>
             <div className="mt-2 space-y-2">
               {options.map((option, index) => (
                 <input
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2.5"
+                  className="w-full rounded-app border border-slate-300 px-3 py-2.5"
                   key={`live-option-${index}`}
                   onChange={(event) => updateOption({ index, value: event.target.value })}
                   value={option}
@@ -1123,14 +1424,14 @@ const LivePoll = () => {
               </button>
             )}
           </div>
-          <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+          <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
             Open poll
           </button>
         </form>
       )}
       {status === "open" && (
-        <section className="mt-7 max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700 text-xs">OPEN</span>
+        <section className="mt-7 max-w-3xl rounded-app border border-slate-200 bg-white p-5 sm:p-7">
+          <span className="rounded-app bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700 text-xs">OPEN</span>
           <h2 className="mt-4 font-bold text-2xl">{question}</h2>
           <div className="mt-6">
             <div className="flex justify-between font-bold text-sm">
@@ -1139,23 +1440,23 @@ const LivePoll = () => {
                 {voters} / {viewers} voted
               </span>
             </div>
-            <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full bg-blue-600" style={{ width: `${(voters / viewers) * 100}%` }} />
+            <div className="mt-2 h-3 overflow-hidden rounded-app bg-slate-100">
+              <div className="h-full rounded-app bg-blue-600" style={{ width: `${(voters / viewers) * 100}%` }} />
             </div>
           </div>
-          <button className="mt-7 rounded-full bg-slate-950 px-5 py-3 font-bold text-white" onClick={() => setStatus("closed")} type="button">
+          <button className="mt-7 rounded-app bg-slate-950 px-5 py-3 font-bold text-white" onClick={() => setStatus("closed")} type="button">
             Close poll
           </button>
           {overAudienceLimit && (
-            <Link className="ml-3 inline-block rounded-full border border-blue-700 px-5 py-3 font-bold text-blue-700 no-underline" to="/my-subscription">
+            <Link className="ml-3 inline-block rounded-app border border-blue-700 px-5 py-3 font-bold text-blue-700 no-underline" to="/my-subscription">
               Upgrade plan
             </Link>
           )}
         </section>
       )}
       {status === "closed" && (
-        <section className="mt-7 max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 font-bold text-slate-700 text-xs">CLOSED</span>
+        <section className="mt-7 max-w-3xl rounded-app border border-slate-200 bg-white p-5 sm:p-7">
+          <span className="rounded-app bg-slate-100 px-2.5 py-1 font-bold text-slate-700 text-xs">CLOSED</span>
           <h2 className="mt-4 font-bold text-2xl">{question}</h2>
           <div className="mt-6 space-y-4">
             {[
@@ -1163,13 +1464,13 @@ const LivePoll = () => {
               { label: options[1], percentage: 34 },
               { label: options[2], percentage: 18 },
             ].map(({ label, percentage }) => (
-              <div className="rounded-xl border border-slate-100 p-4" key={label}>
+              <div className="rounded-app border border-slate-100 p-4" key={label}>
                 <div className="flex justify-between text-sm">
                   <span>{label}</span>
                   <strong>{percentage}%</strong>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-blue-600" style={{ width: `${percentage}%` }} />
+                <div className="mt-2 h-2 overflow-hidden rounded-app bg-slate-100">
+                  <div className="h-full rounded-app bg-blue-600" style={{ width: `${percentage}%` }} />
                 </div>
                 <LiveDemographicPanel />
               </div>
@@ -1220,7 +1521,7 @@ const LiveVoter = () => {
           <Field label="Gross annual income" type="number" />
           <Field label="City" />
           <Field label="Country" />
-          <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+          <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
             Continue
           </button>
         </form>
@@ -1265,14 +1566,14 @@ const LiveVoter = () => {
       <h1 className="mt-2 font-bold text-3xl">{livePoll?.name ?? "Loading poll"}</h1>
       <div className="mt-7 space-y-3">
         {(livePoll?.options ?? []).map((option) => (
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-4 has-checked:border-blue-600 has-checked:bg-blue-50" key={option.id}>
+          <label className="flex cursor-pointer items-center gap-3 rounded-app border border-slate-200 p-4 has-checked:border-blue-600 has-checked:bg-blue-50" key={option.id}>
             <input checked={choice === option.id} name="live-vote" onChange={() => setChoice(option.id)} type="radio" />
             {option.name}
           </label>
         ))}
       </div>
       <button
-        className="mt-7 w-full rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:bg-slate-300"
+        className="mt-7 w-full rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:bg-slate-300"
         disabled={!choice}
         onClick={async () => {
           if (!id) return;
@@ -1301,11 +1602,11 @@ const Groups = () => {
           <p className="font-bold text-blue-700 text-sm tracking-wider">ORGANISATIONS</p>
           <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Your groups</h1>
         </div>
-        <Link className="inline-flex items-center gap-2 rounded-full bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/my-groups/new">
+        <Link className="inline-flex items-center gap-2 rounded-app bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/my-groups/new">
           <FiPlus /> Create group
         </Link>
       </div>
-      <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <section className="mt-7 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
         <div className="flex border-slate-200 border-b">
           <button
             className={`px-4 py-2 font-bold text-sm ${groupTab === "joined" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
@@ -1324,7 +1625,7 @@ const Groups = () => {
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {visibleGroups.map((group) => (
-            <article className="rounded-xl border border-slate-200 p-5" key={group.id}>
+            <article className="rounded-app border border-slate-200 p-5" key={group.id}>
               <h2 className="font-bold text-lg">{group.name}</h2>
               <p className="mt-1 text-slate-600 text-sm">{group.description}</p>
               <p className="mt-4 font-semibold text-sm">
@@ -1341,7 +1642,7 @@ const Groups = () => {
         </div>
         <div className="mt-8 text-center">
           <p className="text-slate-600 text-sm">Upgrade to create and manage private groups.</p>
-          <Link className="mt-3 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
+          <Link className="mt-3 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
             Upgrade plan
           </Link>
         </div>
@@ -1355,12 +1656,12 @@ const GroupNew = () => (
       ← Back to groups
     </Link>
     <h1 className="mt-5 font-bold text-3xl lg:text-5xl">Create group</h1>
-    <form className="mt-7 space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+    <form className="mt-7 space-y-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
       <Field label="Group name" placeholder="e.g. Northstar Strategy" />
       <Field label="Description" placeholder="Purpose and audience" textarea />
       <label className="block font-semibold text-sm">
         Group image
-        <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-slate-300 border-dashed px-3 py-5 text-slate-500">
+        <div className="mt-1.5 flex items-center gap-3 rounded-app border border-slate-300 border-dashed px-3 py-5 text-slate-500">
           <FiImage /> Upload image
         </div>
       </label>
@@ -1368,7 +1669,7 @@ const GroupNew = () => (
       <label className="flex items-center gap-2 font-semibold text-sm">
         <input defaultChecked type="checkbox" /> Send invitation email
       </label>
-      <button className="w-full rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+      <button className="w-full rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
         Create private group
       </button>
     </form>
@@ -1389,23 +1690,23 @@ const GroupDetail = () => {
           <p className="font-bold text-blue-700 text-sm tracking-wider">PRIVATE GROUP</p>
           <h1 className="mt-1 font-bold text-3xl lg:text-5xl">{group.name}</h1>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1.5 font-bold text-blue-800 text-sm">
+        <span className="rounded-app bg-blue-50 px-3 py-1.5 font-bold text-blue-800 text-sm">
           {group.members} / {group.limit} members
         </span>
       </div>
       <section className="mt-7 grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
-        <form className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+        <form className="space-y-4 rounded-app border border-slate-200 bg-white p-5">
           <h2 className="font-bold text-xl">Group settings</h2>
           <Field label="Group name" placeholder={group.name} />
           <Field label="Description" placeholder={group.description} textarea />
-          <button className="rounded-full bg-blue-700 px-4 py-2.5 font-bold text-white" type="submit">
+          <button className="rounded-app bg-blue-700 px-4 py-2.5 font-bold text-white" type="submit">
             Save changes
           </button>
         </form>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <section className="rounded-app border border-slate-200 bg-white p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-xl">Invitations</h2>
-            <button className="rounded-full border border-slate-300 px-3 py-1.5 font-bold text-sm" type="button">
+            <button className="rounded-app border border-slate-300 px-3 py-1.5 font-bold text-sm" type="button">
               Invite members
             </button>
           </div>
@@ -1413,7 +1714,7 @@ const GroupDetail = () => {
             {invitations.map((invitation) => (
               <div className="flex items-center justify-between gap-3 py-3 text-sm" key={invitation.email}>
                 <span>{invitation.email}</span>
-                <span className={`rounded-full px-2.5 py-1 font-bold text-xs ${statusClass(invitation.status)}`}>{invitation.status}</span>
+                <span className={`rounded-app px-2.5 py-1 font-bold text-xs ${statusClass(invitation.status)}`}>{invitation.status}</span>
               </div>
             ))}
           </div>
@@ -1429,19 +1730,16 @@ const Register = () => {
     defaultValues: { language: (i18n.resolvedLanguage ?? "en") as UserRegisterRequest["language"] },
     resolver: zodResolver(UserRegisterRequestSchema),
   });
-  const { error, isMutating, trigger } = useSWRMutation(
-    "http://localhost:8080/register",
-    async (url: string, { arg }: { arg: UserRegisterRequest }): Promise<UserLoginResponse> => {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(arg),
-      });
-      if (!response.ok) throw new Error("Unable to create account");
-      const body = await response.json();
-      return UserLoginResponseSchema.parse(body);
-    },
-  );
+  const { error, isMutating, trigger } = useSWRMutation(`${apiUrl}/register`, async (url: string, { arg }: { arg: UserRegisterRequest }): Promise<UserLoginResponse> => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(arg),
+    });
+    if (!response.ok) throw new Error("Unable to create account");
+    const body = await response.json();
+    return UserLoginResponseSchema.parse(body);
+  });
 
   const registerUser = async (values: UserRegisterRequest) => {
     try {
@@ -1457,25 +1755,25 @@ const Register = () => {
   return (
     <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Join voto</h1>
-      <form className="mt-7 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2" onSubmit={form.handleSubmit(registerUser)}>
+      <form className="mt-7 grid gap-4 rounded-app border border-slate-200 bg-white p-5 sm:grid-cols-2" onSubmit={form.handleSubmit(registerUser)}>
         <label className="block font-semibold text-sm">
           First name
-          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("first_name")} />
+          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("first_name")} />
           {form.formState.errors.first_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.first_name.message}</span>}
         </label>
         <label className="block font-semibold text-sm">
           Last name
-          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("last_name")} />
+          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("last_name")} />
           {form.formState.errors.last_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.last_name.message}</span>}
         </label>
         <label className="block font-semibold text-sm">
           Birth date
-          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" type="date" {...form.register("birth_date")} />
+          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="date" {...form.register("birth_date")} />
           {form.formState.errors.birth_date && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.birth_date.message}</span>}
         </label>
         <label className="block font-semibold text-sm">
           Gender
-          <select className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("gender")}>
+          <select className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("gender")}>
             <option value="">Select gender</option>
             <option value="f">Woman</option>
             <option value="m">Man</option>
@@ -1484,18 +1782,18 @@ const Register = () => {
         </label>
         <label className="block font-semibold text-sm">
           City
-          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("city")} />
+          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("city")} />
           {form.formState.errors.city && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.city.message}</span>}
         </label>
         <label className="block font-semibold text-sm">
           Country
-          <input className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" maxLength={2} {...form.register("country")} />
+          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" maxLength={2} {...form.register("country")} />
           {form.formState.errors.country && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.country.message}</span>}
         </label>
         <label className="block font-semibold text-sm">
           Gross annual income
           <input
-            className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal"
             min="0"
             type="number"
             {...form.register("income", { valueAsNumber: true })}
@@ -1504,14 +1802,14 @@ const Register = () => {
         </label>
         <label className="block font-semibold text-sm">
           Email
-          <input autoComplete="email" className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
+          <input autoComplete="email" className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
           {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
         </label>
         <label className="block font-semibold text-sm sm:col-span-2">
           Password
           <input
             autoComplete="new-password"
-            className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal"
             type="password"
             {...form.register("password")}
           />
@@ -1520,7 +1818,7 @@ const Register = () => {
         <input type="hidden" {...form.register("language")} />
         {error && <p className="text-red-600 text-sm sm:col-span-2">Unable to create account</p>}
         <button
-          className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:col-span-2"
+          className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:col-span-2"
           disabled={isMutating}
           type="submit"
         >
@@ -1558,7 +1856,7 @@ const Profile = () => {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Profile</h1>
-      <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <section className="mt-7 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
         <h2 className="font-bold text-xl">Your information</h2>
         <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
           <div>
@@ -1609,7 +1907,7 @@ const Subscription = () => {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Subscription</h1>
-      <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <section className="mt-7 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-bold text-xl">Current plan</h2>
@@ -1622,22 +1920,22 @@ const Subscription = () => {
           </strong>
         </div>
         <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-          <p className="rounded-xl bg-slate-100 p-3">
+          <p className="rounded-app bg-slate-100 p-3">
             {currentPlan.groupLimit === "none"
               ? t("ui.noPrivateGroups")
               : currentPlan.groupLimit === "unlimited"
                 ? t("ui.unlimitedGroupMembers")
                 : t("ui.membersPerGroup", { count: new Intl.NumberFormat(locale).format(currentPlan.groupLimit) })}
           </p>
-          <p className="rounded-xl bg-slate-100 p-3">
+          <p className="rounded-app bg-slate-100 p-3">
             {currentPlan.liveLimit === "unlimited" ? t("ui.unlimitedLiveUsers") : t("ui.liveUsers", { count: new Intl.NumberFormat(locale).format(currentPlan.liveLimit) })}
           </p>
         </div>
-        <Link className="mt-5 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
+        <Link className="mt-5 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
           Change plan
         </Link>
       </section>
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+      <section className="mt-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
         <h2 className="font-bold text-xl">Payments</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-150 text-left text-sm">
@@ -1684,7 +1982,7 @@ const Checkout = () => {
     <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Checkout</h1>
       <form
-        className="mt-7 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"
+        className="mt-7 space-y-5 rounded-app border border-slate-200 bg-white p-5 sm:p-7"
         onSubmit={(event) => {
           event.preventDefault();
           navigate(`/my-subscription?plan=${plan.toLowerCase()}`);
@@ -1701,7 +1999,7 @@ const Checkout = () => {
             ))}
           </div>
         </fieldset>
-        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+        <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
           Complete purchase
         </button>
       </form>
@@ -1713,7 +2011,7 @@ const Login = () => {
   const navigate = useNavigate();
   const setUser = store.getState().setUser;
   const form = useForm<UserLoginRequest>({ resolver: zodResolver(UserLoginRequestSchema) });
-  const { error, isMutating, trigger } = useSWRMutation("http://localhost:8080/login", async (url: string, { arg }: { arg: UserLoginRequest }): Promise<UserLoginResponse> => {
+  const { error, isMutating, trigger } = useSWRMutation(`${apiUrl}/login`, async (url: string, { arg }: { arg: UserLoginRequest }): Promise<UserLoginResponse> => {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1738,24 +2036,24 @@ const Login = () => {
   return (
     <main className="mx-auto max-w-md px-4 py-8 sm:px-7">
       <h1 className="font-bold text-3xl lg:text-5xl">Log in</h1>
-      <form className="mt-7 space-y-5 rounded-2xl border border-slate-200 bg-white p-5" onSubmit={form.handleSubmit(login)}>
+      <form className="mt-7 space-y-5 rounded-app border border-slate-200 bg-white p-5" onSubmit={form.handleSubmit(login)}>
         <label className="block font-semibold text-sm">
           Email
-          <input autoComplete="email" className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
+          <input autoComplete="email" className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
           {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
         </label>
         <label className="block font-semibold text-sm">
           Password
           <input
             autoComplete="current-password"
-            className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal"
             type="password"
             {...form.register("password")}
           />
           {form.formState.errors.password && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.password.message}</span>}
         </label>
         {error && <p className="text-red-600 text-sm">Invalid email or password</p>}
-        <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isMutating} type="submit">
+        <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isMutating} type="submit">
           Log in
         </button>
       </form>
@@ -1807,11 +2105,11 @@ const MyPolls = () => {
 const Settings = () => (
   <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
     <h1 className="font-bold text-3xl lg:text-5xl">Settings</h1>
-    <form className="mt-7 space-y-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+    <form className="mt-7 space-y-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
       <section>
         <h2 className="font-bold text-xl">Email</h2>
         <Field label="Email" placeholder="elena.rossi@example.com" type="email" />
-        <button className="mt-4 rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
+        <button className="mt-4 rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
           Change email
         </button>
       </section>
@@ -1821,7 +2119,7 @@ const Settings = () => (
         <div className="mt-4">
           <Field label="New password" type="password" />
         </div>
-        <button className="mt-4 rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
+        <button className="mt-4 rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
           Change password
         </button>
       </section>
@@ -1888,9 +2186,10 @@ export const Home = () => {
   else if (isLiveVoter) page = <LiveVoter />;
   else if (isLivePoll) page = <LivePoll />;
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       {!isLivePoll && <Header user={user} />}
-      {page}
-    </>
+      <div className="flex-1">{page}</div>
+      {!isLivePoll && <Footer />}
+    </div>
   );
 };

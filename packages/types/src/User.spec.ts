@@ -60,6 +60,7 @@ describe("User", () => {
         city: "Rome",
         country: "IT",
         language: "it",
+        plan_id: "free",
       };
       const actual = UserSchema.safeParse(user);
       expect(actual.success).toBe(true);

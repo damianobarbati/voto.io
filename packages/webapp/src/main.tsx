@@ -3,11 +3,11 @@ import { preconnect } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { mutate, SWRConfig } from "swr";
+import { apiUrl } from "#webapp/env.ts";
 import { Spinner } from "#webapp/ui/Spinner.tsx";
 import "#webapp/i18n.ts";
 
-const API_URL = "http://localhost:8080";
-preconnect(API_URL, { crossOrigin: "anonymous" });
+preconnect(apiUrl, { crossOrigin: "anonymous" });
 
 const router = createBrowserRouter([
   {
@@ -20,6 +20,14 @@ const router = createBrowserRouter([
       {
         path: "/terms",
         lazy: async () => ({ Component: (await import("#webapp/view/Terms.tsx")).Terms }),
+      },
+      {
+        path: "/about",
+        lazy: async () => ({ Component: (await import("#webapp/view/About.tsx")).About }),
+      },
+      {
+        path: "/contact",
+        lazy: async () => ({ Component: (await import("#webapp/view/Contact.tsx")).Contact }),
       },
       {
         path: "/poll/list",

@@ -1,4 +1,4 @@
-@import "./default.css";
+@import "tailwindcss";
 @import "@fontsource-variable/geist/index.css";
 
 @theme {
@@ -8,31 +8,145 @@
   --line-height: 1.6;
   --letter-spacing: 0em;
   --fade-duration: 0.5s;
+  --ui-radius: 0px;
+
   --color-app-text: #071a3d;
   --color-app-textlight: #475569;
-  --color-app-primary: #071a3d;
+  --color-app-primary: #1d4ed8;
+  --color-app-primary-hover: #2563eb;
   --color-app-bg: #f4f7fb;
   --color-app-surface: #ffffff;
   --color-app-border: #cbd5e1;
-  --color-app-link: #1d4ed8;
-  --color-app-link-hover: #2563eb;
+  --color-app-dark: #020617;
+  --color-app-dark-surface: #0f172a;
+  --color-app-success: #047857;
+  --color-app-success-bg: #ecfdf5;
+  --color-app-warning: #b45309;
+  --color-app-warning-bg: #fffbeb;
+  --color-app-danger: #b91c1c;
+  --color-app-danger-bg: #fef2f2;
+
+  --breakpoint-tablet: 768px;
+  --breakpoint-laptop: 1366px;
+  --breakpoint-desktop: 1536px;
+  --breakpoint-fhd: 1700px;
 }
 
 @layer base {
-  @media (min-width: 1024px) {
-    :root {
+  :root {
+    --font-size: 16px;
+    @media (min-width: 1024px) {
       --font-size: 18px;
     }
   }
 
-  :root.dark {
-    --color-app-text: #f4f4f5;
-    --color-app-textlight: #a1a1aa;
-    --color-app-primary: #3b82f6;
-    --color-app-bg: #050505;
-    --color-app-surface: #121214;
-    --color-app-border: #27272a;
-    --color-app-link: #60a5fa;
-    --color-app-link-hover: #93c5fd;
+  html,
+  body {
+    font-family: var(--font-display);
+    font-size: var(--font-size);
+    font-weight: var(--font-weight);
+    line-height: var(--line-height);
+    letter-spacing: var(--letter-spacing);
+    color: var(--color-app-text);
+    background-color: var(--color-app-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--color-app-text);
+    line-height: 1.25;
+    font-weight: 700;
+  }
+
+  h1 {
+    font-size: calc(var(--font-size) * 1.8);
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-size: calc(var(--font-size) * 1.4);
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+  h3 {
+    font-size: calc(var(--font-size) * 1.2);
+    letter-spacing: -0.02em;
+    font-weight: 500;
+  }
+
+  strong,
+  b {
+    font-weight: 700;
+  }
+
+  a {
+    color: var(--color-app-primary);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.14em;
+    word-break: break-word;
+
+    &:hover {
+      color: var(--color-app-primary-hover);
+    }
+  }
+}
+
+.rounded-app {
+  border-radius: var(--ui-radius);
+}
+
+.typography {
+  max-width: 65ch;
+  overflow-wrap: anywhere;
+  text-align: left;
+
+  & > :first-child {
+    margin-top: 0;
+  }
+  & > :last-child {
+    margin-bottom: 0;
+  }
+
+  & :where(h1, h2, h3) {
+    margin-block: 1.5em 0.5em;
+    color: var(--color-app-text);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+
+  & :where(p, ul, ol, blockquote) {
+    margin-block: 1em;
+  }
+  & :where(ul, ol) {
+    padding-inline-start: 1.5em;
+  }
+  & :where(ul ul, ul ol, ol ul, ol ol) {
+    margin-block: 0.25em;
+  }
+  & li + li {
+    margin-top: 0.25em;
+  }
+
+  & blockquote {
+    border-inline-start: 0.25em solid var(--color-app-border);
+    padding-inline-start: 1em;
+    color: var(--color-app-textlight);
+  }
+
+  & hr {
+    margin-block: 2em;
+    border: 0;
+    border-top: 1px solid var(--color-app-border);
+  }
+
+  & small {
+    color: var(--color-app-textlight);
+    font-size: 0.875em;
   }
 }

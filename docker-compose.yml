@@ -7,10 +7,9 @@ services:
     cpus: 2 # resource pinning for reproducibility across dev and CI
     mem_limit: 4g # resource pinning for reproducibility across dev and CI
     environment:
-      - POSTGRES_HOST=${DATABASE_HOST?}
-      - POSTGRES_DB=${DATABASE_NAME?}
-      - POSTGRES_USER=${DATABASE_USERNAME?}
-      - POSTGRES_PASSWORD=${DATABASE_PASSWORD?}
+      - POSTGRES_DB=voto
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
     command: >
       postgres
       -c max_connections=800
@@ -26,7 +25,7 @@ services:
       -c max_parallel_workers_per_gather=0
       -c max_parallel_maintenance_workers=0
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h $$POSTGRES_HOST"]
+      test: ["CMD-SHELL", "pg_isready -U user -d voto"]
       start_period: 3s
       interval: 3s
       retries: 3
@@ -41,10 +40,10 @@ services:
     container_name: voto-cache
     restart: unless-stopped
     environment:
-      - REDIS_PASSWORD=${CACHE_PASSWORD?}
-    command: ["redis-server", "--save", "20 1", "--loglevel", "warning", "--requirepass", "${CACHE_PASSWORD?}"]
+      - REDIS_PASSWORD=password
+    command: ["redis-server", "--save", "20 1", "--loglevel", "warning", "--requirepass", "password"]
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "REDISCLI_AUTH=${CACHE_PASSWORD?}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "REDISCLI_AUTH=password", "ping"]
       start_period: 3s
       interval: 3s
       retries: 3

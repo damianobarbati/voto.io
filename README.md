@@ -47,6 +47,14 @@ To run with https locally:
 npx ngrok start --all --config ngrok.yml --authtoken <authtoken>
 ```
 
+To run docker containers locally:
+```sh
+DOCKER_BUILDKIT=1 docker build --rm --force-rm -t api -f ./packages/api/Dockerfile .
+DOCKER_BUILDKIT=1 docker build --rm --force-rm -t webapp --build-arg VITE_API_URL="http://localhost:8080" -f ./packages/webapp/Dockerfile .
+docker run --rm -ti -p 8080:8080 --env-file .env -e DB_URI=postgresql://user:password@host.docker.internal/voto api
+docker run --rm -ti -p 3000:80 webapp
+```
+
 ## NFRs
 
 Run e2e testing:

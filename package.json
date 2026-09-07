@@ -5,9 +5,9 @@
   "author": "Damiano Barbati <damiano.barbati@gmail.com> (https://github.com/damianobarbati)",
   "repository": "https://github.com/damianobarbati/voto.io",
   "description": "Poll and vote.",
-  "packageManager": "pnpm@11.25.0",
+  "packageManager": "pnpm@12.3.4",
   "engines": {
-    "pnpm": ">=11.25",
+    "pnpm": ">=12.3",
     "node": ">=26.7"
   },
   "type": "module",
@@ -17,9 +17,6 @@
     "tsc": "tsc",
     "env:up": "docker compose up -d --wait --quiet-pull --remove-orphans",
     "env:down": "docker compose down --volumes --remove-orphans"
-  },
-  "dependencies": {
-    "amaro": "^1.1.11"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",

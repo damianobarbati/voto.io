@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export const UserPlanSchema = z.enum(["free", "small", "big", "unlimited"]);
+export type UserPlan = z.output<typeof UserPlanSchema>;
+
 export const UserRowSchema = z
   .object({
     id: z.string(),
@@ -21,7 +24,7 @@ export const UserRowSchema = z
 export type UserRowUnsafe = z.input<typeof UserRowSchema>;
 export type UserRow = z.output<typeof UserRowSchema>;
 
-export const UserSchema = UserRowSchema.omit({ password_hash: true });
+export const UserSchema = UserRowSchema.omit({ password_hash: true }).extend({ plan_id: UserPlanSchema });
 export type User = z.output<typeof UserSchema>;
 
 export const UserLoginRequestSchema = z

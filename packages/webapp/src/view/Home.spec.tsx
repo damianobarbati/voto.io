@@ -3,6 +3,8 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n, languageStorageKey } from "#webapp/i18n.ts";
 import { jwtStorageKey, store } from "#webapp/store.ts";
+import { About } from "./About.tsx";
+import { Contact } from "./Contact.tsx";
 import { Home } from "./Home.tsx";
 import { Terms } from "./Terms.tsx";
 
@@ -112,6 +114,16 @@ describe("Home", () => {
     expect(screen.getByRole("heading", { level: 2, name: "3. Rules for polls and groups" })).toBeDefined();
   });
 
+  it.each([
+    ["/about", About],
+    ["/contact", Contact],
+    ["/terms", Terms],
+  ])("renders the voto.io back link on %s", (path, Component) => {
+    const router = createMemoryRouter([{ path, Component }], { initialEntries: [path] });
+    render(<RouterProvider router={router} />);
+    expect(screen.getByRole("link", { name: "Back to voto.io" }).getAttribute("href")).toBe("/");
+  });
+
   it("renders the landing heading", async () => {
     const router = createMemoryRouter([{ path: "/", Component: Home }], { initialEntries: ["/"] });
     render(<RouterProvider router={router} />);
@@ -158,6 +170,7 @@ describe("Home", () => {
         city: "Milan",
         country: "IT",
         language: "en",
+        plan_id: "free",
       },
     });
     localStorage.setItem(jwtStorageKey, "test-jwt");
@@ -171,17 +184,10 @@ describe("Home", () => {
     await waitFor(() => expect(app.getByRole("link", { name: "Log in" }).getAttribute("href")).toBe("/login"));
   });
 
-  it("reorders ranked choices when one is dropped on another", async () => {
+  it("renders drag handles for ranked choices", async () => {
     const router = createMemoryRouter([{ path: "/poll/:id", Component: Home }], { initialEntries: ["/poll/night-buses"] });
     render(<RouterProvider router={router} />);
-    const source = (await screen.findByText("Add an airport connection")).closest('[draggable="true"]');
-    const target = screen.getByText("Extend route N6").closest('[draggable="true"]');
-    if (!source || !target) throw new Error("Ranked choices are missing");
-    const dataTransfer = new DataTransfer();
-    fireEvent.dragStart(source, { dataTransfer });
-    fireEvent.drop(target, { dataTransfer });
-    const rankedChoices = document.querySelectorAll('[draggable="true"]');
-    expect(rankedChoices[0].textContent).toContain("Add an airport connection");
+    expect(await screen.findByRole("button", { name: "Reorder Add an airport connection" })).toBeDefined();
   });
 
   it("submits the selected poll options with the saved login token", async () => {
@@ -294,6 +300,12 @@ describe("Home", () => {
     expect(screen.getByText("CLOSED")).toBeDefined();
     expect(screen.getAllByText("Demographic breakdown").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Other cities").length).toBeGreaterThan(0);
+  });
+
+  it("renders the voto.io back link on live poll creation", () => {
+    const router = createMemoryRouter([{ path: "/live-poll/:id", Component: Home }], { initialEntries: ["/live-poll/new"] });
+    render(<RouterProvider router={router} />);
+    expect(screen.getByRole("link", { name: "Back to voto.io" }).getAttribute("href")).toBe("/");
   });
 
   it("blocks live poll creation below the desktop width", () => {

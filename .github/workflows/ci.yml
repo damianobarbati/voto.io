@@ -21,6 +21,7 @@ env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
   # vars
   VITE_APP_ENV: ${{ vars.VITE_APP_ENV }}
+  VITE_API_URL: ${{ vars.VITE_API_URL }}
 
 jobs:
   test:
@@ -98,7 +99,7 @@ jobs:
         run: DOCKER_BUILDKIT=1 docker build --quiet --rm --force-rm -t api -f ./packages/api/Dockerfile .
 
       - name: Build image "webapp"
-        run: DOCKER_BUILDKIT=1 docker build --quiet --rm --force-rm -t webapp -f ./packages/webapp/Dockerfile .
+        run: DOCKER_BUILDKIT=1 docker build --quiet --rm --force-rm --build-arg VITE_API_URL -t webapp -f ./packages/webapp/Dockerfile .
 
       - name: Dockerhub login
         if: startsWith(github.ref, 'refs/tags/')

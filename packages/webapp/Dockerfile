@@ -1,5 +1,6 @@
 FROM node:26.7-alpine AS base
 
+ENV NODE_ENV=production
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
@@ -8,6 +9,8 @@ WORKDIR /mnt
 
 FROM base AS builder
 COPY . .
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --silent --frozen-lockfile --prefer-offline
 RUN pnpm -F webapp build
 
