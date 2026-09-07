@@ -1,9 +1,169 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
+const ui = {
+  plans: "Plans",
+  planName: "{{plan}} plan",
+  selectPlan: "Select plan",
+  perMonth: "/month",
+  noPrivateGroups: "No private groups",
+  membersPerGroup: "{{count}} members per group",
+  unlimitedGroupMembers: "Unlimited group members",
+  liveUsers: "{{count}} live users",
+  unlimitedLiveUsers: "Unlimited live users",
+  termsBack: "Back to voto.io",
+  legal: "LEGAL",
+  termsTitle: "Terms of Use",
+  lastUpdated: "Last updated: {{date}}",
+  termsIntro: "Please read these Terms of Use carefully before using voto.io.",
+  pricingTitle: "Choose a plan that grows with your decisions.",
+  pricingDescription: "Start with the level of capacity your community needs. You can change your plan at any time.",
+  publishedBy: "Published by",
+  closes: "Closes {{date}}",
+  accessDenied: "Access denied",
+  pollNotFound: "Poll not found.",
+  loadingPoll: "Loading poll",
+  loading: "Loading",
+  turnout: "Turnout",
+  votesCast: "Votes cast",
+  eligibleTurnout: "Eligible turnout",
+  timeRemaining: "Time remaining",
+  choices: "Choices",
+  submitVote: "Submit vote",
+  seeResults: "See results",
+};
+
+const localizedUi = {
+  it: {
+    plans: "Piani",
+    planName: "Piano {{plan}}",
+    selectPlan: "Scegli piano",
+    perMonth: "/mese",
+    noPrivateGroups: "Nessun gruppo privato",
+    membersPerGroup: "{{count}} membri per gruppo",
+    unlimitedGroupMembers: "Membri del gruppo illimitati",
+    liveUsers: "{{count}} utenti live",
+    unlimitedLiveUsers: "Utenti live illimitati",
+    termsBack: "Torna a voto.io",
+    legal: "LEGALE",
+    termsTitle: "Termini di utilizzo",
+    lastUpdated: "Ultimo aggiornamento: {{date}}",
+    termsIntro: "Leggi attentamente questi Termini di utilizzo prima di usare voto.io.",
+    pricingTitle: "Scegli un piano che cresce con le tue decisioni.",
+    pricingDescription: "Inizia con la capacità necessaria alla tua comunità. Puoi cambiare piano in qualsiasi momento.",
+    publishedBy: "Pubblicato da",
+    closes: "Chiude {{date}}",
+    accessDenied: "Accesso negato",
+    pollNotFound: "Sondaggio non trovato.",
+    loadingPoll: "Caricamento sondaggio",
+    loading: "Caricamento",
+    turnout: "Affluenza",
+    votesCast: "Voti espressi",
+    eligibleTurnout: "Affluenza degli idonei",
+    timeRemaining: "Tempo rimanente",
+    choices: "Opzioni",
+    submitVote: "Invia voto",
+    seeResults: "Vedi risultati",
+  },
+  es: {
+    plans: "Planes",
+    planName: "Plan {{plan}}",
+    selectPlan: "Elegir plan",
+    perMonth: "/mes",
+    noPrivateGroups: "Sin grupos privados",
+    membersPerGroup: "{{count}} miembros por grupo",
+    unlimitedGroupMembers: "Miembros de grupo ilimitados",
+    liveUsers: "{{count}} usuarios en directo",
+    unlimitedLiveUsers: "Usuarios en directo ilimitados",
+    termsBack: "Volver a voto.io",
+    legal: "LEGAL",
+    termsTitle: "Términos de uso",
+    lastUpdated: "Última actualización: {{date}}",
+    termsIntro: "Lee estos Términos de uso con atención antes de usar voto.io.",
+    pricingTitle: "Elige un plan que crezca con tus decisiones.",
+    pricingDescription: "Empieza con la capacidad que necesita tu comunidad. Puedes cambiar de plan en cualquier momento.",
+    publishedBy: "Publicado por",
+    closes: "Cierra {{date}}",
+    accessDenied: "Acceso denegado",
+    pollNotFound: "Encuesta no encontrada.",
+    loadingPoll: "Cargando encuesta",
+    loading: "Cargando",
+    turnout: "Participación",
+    votesCast: "Votos emitidos",
+    eligibleTurnout: "Participación de personas elegibles",
+    timeRemaining: "Tiempo restante",
+    choices: "Opciones",
+    submitVote: "Enviar voto",
+    seeResults: "Ver resultados",
+  },
+  de: {
+    plans: "Tarife",
+    planName: "Tarif {{plan}}",
+    selectPlan: "Tarif wählen",
+    perMonth: "/Monat",
+    noPrivateGroups: "Keine privaten Gruppen",
+    membersPerGroup: "{{count}} Mitglieder pro Gruppe",
+    unlimitedGroupMembers: "Unbegrenzte Gruppenmitglieder",
+    liveUsers: "{{count}} Live-Nutzer",
+    unlimitedLiveUsers: "Unbegrenzte Live-Nutzer",
+    termsBack: "Zurück zu voto.io",
+    legal: "RECHTLICHES",
+    termsTitle: "Nutzungsbedingungen",
+    lastUpdated: "Zuletzt aktualisiert: {{date}}",
+    termsIntro: "Bitte lies diese Nutzungsbedingungen sorgfältig, bevor du voto.io nutzt.",
+    pricingTitle: "Wähle einen Tarif, der mit deinen Entscheidungen wächst.",
+    pricingDescription: "Beginne mit der Kapazität, die deine Gemeinschaft braucht. Du kannst deinen Tarif jederzeit ändern.",
+    publishedBy: "Veröffentlicht von",
+    closes: "Schließt {{date}}",
+    accessDenied: "Zugriff verweigert",
+    pollNotFound: "Umfrage nicht gefunden.",
+    loadingPoll: "Umfrage wird geladen",
+    loading: "Lädt",
+    turnout: "Beteiligung",
+    votesCast: "Abgegebene Stimmen",
+    eligibleTurnout: "Beteiligung der Berechtigten",
+    timeRemaining: "Verbleibende Zeit",
+    choices: "Optionen",
+    submitVote: "Stimme abgeben",
+    seeResults: "Ergebnisse anzeigen",
+  },
+  fr: {
+    plans: "Offres",
+    planName: "Offre {{plan}}",
+    selectPlan: "Choisir l’offre",
+    perMonth: "/mois",
+    noPrivateGroups: "Aucun groupe privé",
+    membersPerGroup: "{{count}} membres par groupe",
+    unlimitedGroupMembers: "Membres de groupe illimités",
+    liveUsers: "{{count}} utilisateurs en direct",
+    unlimitedLiveUsers: "Utilisateurs en direct illimités",
+    termsBack: "Retour à voto.io",
+    legal: "MENTIONS LÉGALES",
+    termsTitle: "Conditions d’utilisation",
+    lastUpdated: "Dernière mise à jour : {{date}}",
+    termsIntro: "Veuillez lire attentivement ces Conditions d’utilisation avant d’utiliser voto.io.",
+    pricingTitle: "Choisissez une offre qui évolue avec vos décisions.",
+    pricingDescription: "Commencez avec la capacité dont votre communauté a besoin. Vous pouvez changer d’offre à tout moment.",
+    publishedBy: "Publié par",
+    closes: "Se termine {{date}}",
+    accessDenied: "Accès refusé",
+    pollNotFound: "Sondage introuvable.",
+    loadingPoll: "Chargement du sondage",
+    loading: "Chargement",
+    turnout: "Participation",
+    votesCast: "Votes exprimés",
+    eligibleTurnout: "Participation des personnes éligibles",
+    timeRemaining: "Temps restant",
+    choices: "Choix",
+    submitVote: "Envoyer le vote",
+    seeResults: "Voir les résultats",
+  },
+};
+
 const resources = {
   en: {
     translation: {
+      ui,
       nav: {
         explore: "Explore",
         join: "Join voto",
@@ -186,6 +346,7 @@ const resources = {
   },
   it: {
     translation: {
+      ui: { ...ui, ...localizedUi.it },
       nav: {
         explore: "Esplora",
         join: "Unisciti a voto",
@@ -368,6 +529,7 @@ const resources = {
   },
   es: {
     translation: {
+      ui: { ...ui, ...localizedUi.es },
       nav: {
         explore: "Explorar",
         join: "Únete a voto",
@@ -402,6 +564,7 @@ const resources = {
   },
   de: {
     translation: {
+      ui: { ...ui, ...localizedUi.de },
       nav: {
         explore: "Entdecken",
         join: "voto beitreten",
@@ -436,6 +599,7 @@ const resources = {
   },
   fr: {
     translation: {
+      ui: { ...ui, ...localizedUi.fr },
       nav: {
         explore: "Explorer",
         join: "Rejoindre voto",
@@ -487,4 +651,10 @@ i18n.on("languageChanged", (selectedLanguage) => {
   if (typeof localStorage !== "undefined") localStorage.setItem(languageStorageKey, selectedLanguage);
 });
 
-export { i18n, languageStorageKey };
+const formatUsd = ({ amount, locale = i18n.resolvedLanguage ?? i18n.language }: { amount: number; locale?: string }) =>
+  new Intl.NumberFormat(locale, { currency: "USD", style: "currency" }).format(amount);
+
+const formatDate = ({ date, locale = i18n.resolvedLanguage ?? i18n.language }: { date: Date | string; locale?: string }) =>
+  new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(date));
+
+export { formatDate, formatUsd, i18n, languageStorageKey };

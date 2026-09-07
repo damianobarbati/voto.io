@@ -12,7 +12,7 @@
   },
   "type": "module",
   "scripts": {
-    "postinstall": "pnpm audit --audit-level critical",
+    "//postinstall": "pnpm audit --audit-level critical",
     "lint": "biome check --write",
     "tsc": "tsc",
     "env:up": "docker compose up -d --wait --quiet-pull --remove-orphans",

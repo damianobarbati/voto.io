@@ -25,7 +25,7 @@ import {
 } from "react-icons/fi";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import useSWRMutation from "swr/mutation";
 import { type Poll as ApiPoll, PollSchema } from "types/Poll.ts";
 import {
@@ -39,7 +39,7 @@ import {
   UserSchema,
 } from "types/User.ts";
 import { type PlanName, PurchasePlans, profilePlans } from "#webapp/components/PurchasePlans.tsx";
-import { i18n, languageStorageKey } from "#webapp/i18n.ts";
+import { formatDate, formatUsd, i18n, languageStorageKey } from "#webapp/i18n.ts";
 import { jwtStorageKey, store } from "#webapp/store.ts";
 import { Spinner } from "#webapp/ui/Spinner.tsx";
 
@@ -53,6 +53,7 @@ type Poll = {
   description: string;
   votingMethod: VotingMethod;
   options: string[];
+  optionIds: string[];
   votes: number;
   eligible: number;
   authorName: string;
@@ -140,10 +141,11 @@ const toPoll = (poll: ApiPoll): Poll => ({
   description: poll.description,
   votingMethod: pollVotingMethod(poll.type),
   options: poll.options.map((option) => option.name),
+  optionIds: poll.options.map((option) => option.id),
   votes: 0,
   eligible: 0,
   authorName: poll.creator_id,
-  closes: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(new Date(poll.closes_at)),
+  closes: formatDate({ date: poll.closes_at }),
   closesAt: poll.closes_at,
   rankedAlgorithm: poll.ranked_method ?? undefined,
   groupId: poll.group_id ?? undefined,
@@ -291,6 +293,9 @@ const VotingMethodIcon = ({ votingMethod }: { votingMethod: VotingMethod }) => {
   );
 };
 const PollCard = ({ poll }: { poll: Poll }) => {
+  const { i18n: translationI18n, t } = useTranslation();
+  const locale = translationI18n.resolvedLanguage ?? translationI18n.language;
+  const closeDate = formatDate({ date: poll.closesAt, locale });
   const group = groupFor(poll.groupId);
   const turnout = pollTurnout(poll).toFixed(1);
   return (
@@ -305,19 +310,19 @@ const PollCard = ({ poll }: { poll: Poll }) => {
         <VotingMethodIcon votingMethod={poll.votingMethod} />
       </div>
       <p className="mt-2 text-slate-500 text-xs">
-        Published by{" "}
+        {t("ui.publishedBy")}{" "}
         <Link className="font-bold text-blue-700 no-underline" to="/u/1">
           {poll.authorName}
         </Link>
       </p>
       <div className="mt-5 flex justify-between border-slate-100 border-t pt-4 text-slate-500 text-xs">
         <span>
-          {poll.votes.toLocaleString()} votes · {turnout}% turnout
+          {poll.votes.toLocaleString(locale)} {t("common.votes")} · {turnout}% {t("landing.turnout")}
         </span>
-        <span>Closes in {poll.closes}</span>
+        <span>{t("ui.closes", { date: closeDate })}</span>
       </div>
       <Link className="mt-4 flex items-center justify-between font-bold text-blue-700 text-sm no-underline" to={`/poll/${poll.id}`}>
-        Open poll <FiArrowRight />
+        {t("common.openPoll")} <FiArrowRight />
       </Link>
     </article>
   );
@@ -382,9 +387,9 @@ const Landing = () => {
       </main>
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
         <div className="max-w-2xl">
-          <p className="font-bold text-blue-700 text-sm tracking-wider">PLANS</p>
-          <h2 className="mt-1 font-bold text-3xl lg:text-4xl">Choose a plan that grows with your decisions.</h2>
-          <p className="mt-3 text-slate-600">Start with the level of capacity your community needs. You can change your plan at any time.</p>
+          <p className="font-bold text-blue-700 text-sm tracking-wider">{t("ui.plans")}</p>
+          <h2 className="mt-1 font-bold text-3xl lg:text-4xl">{t("ui.pricingTitle")}</h2>
+          <p className="mt-3 text-slate-600">{t("ui.pricingDescription")}</p>
         </div>
         <PurchasePlans className="mt-7" />
       </section>
@@ -575,12 +580,50 @@ const PollDetail = () => {
   const [many, setMany] = React.useState<string[]>([]);
   const [ranked, setRanked] = React.useState(poll.options);
   const [dragged, setDragged] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState("");
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
   if (group && !memberCanAccess(poll)) return <AccessDenied group={group} />;
   const move = ({ source, target }: { source: string; target: string }) => {
     if (!source || source === target) return;
     const next = ranked.filter((option) => option !== source);
     next.splice(next.indexOf(target), 0, source);
     setRanked(next);
+  };
+  const submitVote = async () => {
+    const token = localStorage.getItem(jwtStorageKey);
+    if (!token) {
+      setSubmitError("Log in to submit your vote.");
+      return;
+    }
+    const choices = poll.votingMethod === "One choice" ? [single] : poll.votingMethod === "Multiple choice" ? many : ranked;
+    const optionIds = choices.map((choice) => poll.optionIds[poll.options.indexOf(choice)]).filter((optionId): optionId is string => Boolean(optionId));
+    if (optionIds.length === 0) {
+      setSubmitError("Select at least one option.");
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      const response = await fetch(`${apiUrl}/polls/${poll.id}/votes`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ option_ids: optionIds }),
+      });
+      if (!response.ok) {
+        let body: { message?: string } | null = null;
+        try {
+          body = (await response.json()) as { message?: string };
+        } catch {}
+        throw new Error(body?.message ?? "Unable to submit your vote.");
+      }
+      setIsSubmitted(true);
+      await mutate(`${apiUrl}/polls`);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to submit your vote.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 sm:px-7">
@@ -659,13 +702,20 @@ const PollDetail = () => {
                 ))}
             </div>
             <div className="mt-5 flex gap-3">
-              <button className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white" type="button">
+              <button
+                className="rounded-full bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                disabled={isSubmitting || isSubmitted}
+                onClick={submitVote}
+                type="button"
+              >
                 Submit vote
               </button>
               <Link className="rounded-full border border-slate-300 px-5 py-3 font-bold text-slate-800 text-sm no-underline" to={`/poll/${poll.id}/stats`}>
                 See results
               </Link>
             </div>
+            {isSubmitted && <p className="mt-3 font-semibold text-emerald-700 text-sm">Your vote was submitted.</p>}
+            {submitError && <p className="mt-3 font-semibold text-red-700 text-sm">{submitError}</p>}
           </div>
         </section>
         <aside className="rounded-2xl bg-slate-100 p-5">
@@ -694,25 +744,28 @@ const PollDetail = () => {
   );
 };
 
-const DemographicChart = ({ data, title }: { data: Range[]; title: string }) => (
-  <section className="rounded-2xl border border-slate-200 bg-white p-5">
-    <h2 className="font-bold text-lg">{title}</h2>
-    <div className="mt-4 h-72">
-      <ResponsiveContainer height="100%" width="100%">
-        <BarChart data={data} layout="vertical">
-          <XAxis dataKey="percentage" tickFormatter={(value) => `${value}%`} type="number" />
-          <YAxis dataKey="range" type="category" width={70} />
-          <Tooltip formatter={(value) => [`${value}%`, "Turnout"] as [string, string]} />
-          <Bar dataKey="percentage" radius={[0, 5, 5, 0]}>
-            {data.map((item) => (
-              <Cell fill="#2563eb" key={item.range} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  </section>
-);
+const DemographicChart = ({ data, title }: { data: Range[]; title: string }) => {
+  const { t } = useTranslation();
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <h2 className="font-bold text-lg">{title}</h2>
+      <div className="mt-4 h-72">
+        <ResponsiveContainer height="100%" width="100%">
+          <BarChart data={data} layout="vertical">
+            <XAxis dataKey="percentage" tickFormatter={(value) => `${value}%`} type="number" />
+            <YAxis dataKey="range" type="category" width={70} />
+            <Tooltip formatter={(value) => [`${value}%`, t("ui.turnout")] as [string, string]} />
+            <Bar dataKey="percentage" radius={[0, 5, 5, 0]}>
+              {data.map((item) => (
+                <Cell fill="#2563eb" key={item.range} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+};
 const ChoiceResults = () => (
   <>
     <h2 className="font-bold text-xl">Choices</h2>
@@ -1490,13 +1543,16 @@ const planFromSearch = (search: string) => {
 };
 
 const Profile = () => {
+  const { i18n: translationI18n } = useTranslation();
+  const locale = translationI18n.resolvedLanguage ?? translationI18n.language;
   const user = store.getState().user;
   const firstName = user?.first_name ?? user?.name ?? "Elena";
   const lastName = user?.last_name ?? "Rossi";
-  const birthDate = user ? new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long", year: "numeric" }).format(new Date(user.birth_date)) : "14 May 1992";
+  const birthDate = user
+    ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(user.birth_date))
+    : formatDate({ date: "1992-05-14", locale });
   const gender = user?.gender === "f" ? "Woman" : user?.gender === "m" ? "Man" : "Not specified";
-  const income =
-    user?.income === null || user?.income === undefined ? "Not specified" : new Intl.NumberFormat(i18n.language, { style: "currency", currency: "EUR" }).format(user.income);
+  const income = user?.income === null || user?.income === undefined ? "Not specified" : new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(user.income);
   const cityAndCountry = user?.city && user.country ? `${user.city}, ${user.country}` : "Milan, Italy";
   const email = user?.email ?? "elena.rossi@example.com";
   return (
@@ -1546,6 +1602,8 @@ const Profile = () => {
 };
 
 const Subscription = () => {
+  const { i18n: translationI18n, t } = useTranslation();
+  const locale = translationI18n.resolvedLanguage ?? translationI18n.language;
   const plan = planFromSearch(useLocation().search) ?? "Free";
   const currentPlan = profilePlans[plan];
   return (
@@ -1558,11 +1616,22 @@ const Subscription = () => {
             <p className="mt-1 font-bold text-2xl">{plan}</p>
             <p className="mt-1 text-slate-500 text-sm">{plan === "Free" ? "Valid forever" : "Valid until 28 September 2026"}</p>
           </div>
-          <strong className="text-2xl">{currentPlan.price}</strong>
+          <strong className="text-2xl">
+            {formatUsd({ amount: currentPlan.price, locale })}
+            {t("ui.perMonth")}
+          </strong>
         </div>
         <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-          <p className="rounded-xl bg-slate-100 p-3">{currentPlan.groupLimit}</p>
-          <p className="rounded-xl bg-slate-100 p-3">{currentPlan.liveLimit}</p>
+          <p className="rounded-xl bg-slate-100 p-3">
+            {currentPlan.groupLimit === "none"
+              ? t("ui.noPrivateGroups")
+              : currentPlan.groupLimit === "unlimited"
+                ? t("ui.unlimitedGroupMembers")
+                : t("ui.membersPerGroup", { count: new Intl.NumberFormat(locale).format(currentPlan.groupLimit) })}
+          </p>
+          <p className="rounded-xl bg-slate-100 p-3">
+            {currentPlan.liveLimit === "unlimited" ? t("ui.unlimitedLiveUsers") : t("ui.liveUsers", { count: new Intl.NumberFormat(locale).format(currentPlan.liveLimit) })}
+          </p>
         </div>
         <Link className="mt-5 inline-block rounded-full bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
           Change plan

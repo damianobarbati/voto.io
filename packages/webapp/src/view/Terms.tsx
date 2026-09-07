@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { formatDate } from "#webapp/i18n.ts";
 
 const sections = [
   {
@@ -75,35 +77,39 @@ const sections = [
   },
 ];
 
-export const Terms = () => (
-  <main className="mx-auto max-w-3xl px-4 py-10 sm:px-7 lg:py-16">
-    <Link className="font-bold text-blue-700 text-sm no-underline hover:text-blue-600" to="/">
-      ← Back to voto.io
-    </Link>
-    <header className="mt-8 border-slate-200 border-b pb-8">
-      <p className="font-bold text-blue-700 text-sm tracking-wider">LEGAL</p>
-      <h1 className="mt-2 font-bold text-4xl tracking-tight sm:text-5xl">Terms of Use</h1>
-      <p className="mt-4 text-slate-600">Last updated: 31 August 2026</p>
-      <p className="mt-6 text-slate-600">Please read these Terms of Use carefully before using voto.io.</p>
-    </header>
-    <div className="space-y-10 py-10">
-      {sections.map((section) => (
-        <section key={section.title}>
-          <h2 className="font-bold text-2xl tracking-tight">{section.title}</h2>
-          {section.paragraphs.map((paragraph) => (
-            <p className="mt-3 text-slate-600" key={paragraph}>
-              {paragraph}
-            </p>
-          ))}
-          {section.items && (
-            <ul className="mt-3 list-disc space-y-2 pl-6 text-slate-600">
-              {section.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
-    </div>
-  </main>
-);
+export const Terms = () => {
+  const { i18n, t } = useTranslation();
+  const lastUpdated = formatDate({ date: "2026-08-31", locale: i18n.resolvedLanguage ?? i18n.language });
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-10 sm:px-7 lg:py-16">
+      <Link className="font-bold text-blue-700 text-sm no-underline hover:text-blue-600" to="/">
+        ← {t("ui.termsBack")}
+      </Link>
+      <header className="mt-8 border-slate-200 border-b pb-8">
+        <p className="font-bold text-blue-700 text-sm tracking-wider">{t("ui.legal")}</p>
+        <h1 className="mt-2 font-bold text-4xl tracking-tight sm:text-5xl">{t("ui.termsTitle")}</h1>
+        <p className="mt-4 text-slate-600">{t("ui.lastUpdated", { date: lastUpdated })}</p>
+        <p className="mt-6 text-slate-600">{t("ui.termsIntro")}</p>
+      </header>
+      <div className="space-y-10 py-10">
+        {sections.map((section) => (
+          <section key={section.title}>
+            <h2 className="font-bold text-2xl tracking-tight">{section.title}</h2>
+            {section.paragraphs.map((paragraph) => (
+              <p className="mt-3 text-slate-600" key={paragraph}>
+                {paragraph}
+              </p>
+            ))}
+            {section.items && (
+              <ul className="mt-3 list-disc space-y-2 pl-6 text-slate-600">
+                {section.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))}
+      </div>
+    </main>
+  );
+};

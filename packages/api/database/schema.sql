@@ -20,7 +20,7 @@ declare
   seq bigint;
   id_num bigint;
   res text := '';
-  chars text := '0123456789abcdefghijklmnopqrstuvwvoto';
+  chars text := '0123456789abcdefghijklmnopqrstuvwxyz';
   epoch_offset bigint := 1735689600;
 begin
   -- 1. generate 45bit id
