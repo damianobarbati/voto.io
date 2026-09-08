@@ -24,6 +24,37 @@ env:
   VITE_API_URL: ${{ vars.VITE_API_URL }}
 
 jobs:
+  dast-testing:
+    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - run: pnpm install --silent --frozen-lockfile --prefer-offline
+      - run: cp .env.sample .env && pnpm env:up && pnpm -F api db:migrate && pnpm -F api db:seed
+      - name: Start application
+        run: |
+          pnpm -F api start:dev & pnpm -F webapp build:dev &
+          timeout 30 sh -c 'until curl -fsS http://localhost:8080/healthcheck >/dev/null && curl -fsS http://localhost:3000 >/dev/null; do sleep 1; done'
+      - name: Bootstrap authenticated ZAP identities
+        run: node security/zap-bootstrap.mjs > /tmp/zap-identities.json
+      - name: ZAP active and baseline scan
+        run: |
+          mkdir -p zap-reports
+          docker run --network host --user zap --rm -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py -t http://127.0.0.1:8080 -m 5 -J /zap/wrk/zap-reports/api-active.json || test $? -le 2
+          docker run --network host --user zap --rm -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://127.0.0.1:3000 -m 5 -J /zap/wrk/zap-reports/web-baseline.json || test $? -le 2
+          jq -n '{version:"2.1.0", "$schema":"https://json.schemastore.org/sarif-2.1.0.json", runs:[]}' > zap-reports/combined.sarif
+      - name: Upload ZAP SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: zap-reports/combined.sarif
   test:
     timeout-minutes: 5
     runs-on: ubuntu-24.04
