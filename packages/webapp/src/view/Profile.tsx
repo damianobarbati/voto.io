@@ -19,42 +19,42 @@ export const Profile = () => {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
       <h1 className="font-bold">Profile</h1>
-      <section className="mt-7 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
+      <section className="mt-7 rounded-app border border-app-border bg-app-surface p-5 sm:p-7">
         <h2 className="font-bold">Your information</h2>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <div>
-            <dt className="text-slate-500">First name</dt>
+            <dt className="text-app-text-muted">First name</dt>
             <dd className="font-bold">{firstName}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Last name</dt>
+            <dt className="text-app-text-muted">Last name</dt>
             <dd className="font-bold">{lastName}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Birth date</dt>
+            <dt className="text-app-text-muted">Birth date</dt>
             <dd className="font-bold">{birthDate}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Gender</dt>
+            <dt className="text-app-text-muted">Gender</dt>
             <dd className="font-bold">{gender}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Gross annual income</dt>
+            <dt className="text-app-text-muted">Gross annual income</dt>
             <dd className="font-bold">{income}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">City and country</dt>
+            <dt className="text-app-text-muted">City and country</dt>
             <dd className="font-bold">{cityAndCountry}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Email</dt>
+            <dt className="text-app-text-muted">Email</dt>
             <dd className="font-bold">{email}</dd>
           </div>
         </dl>
       </section>
-      <p className="mt-5 text-slate-600">
+      <p className="mt-5 text-app-text-muted">
         Public creator link:{" "}
-        <Link className="font-bold text-blue-700" to="/u/1">
+        <Link className="font-bold text-app-primary" to="/u/1">
           voto.io/u/1
         </Link>
       </p>

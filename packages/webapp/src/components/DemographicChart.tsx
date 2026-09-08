@@ -8,7 +8,7 @@ type DemographicChartProps = { data: Range[]; title: string };
 export const DemographicChart = ({ data, title }: DemographicChartProps) => {
   const { t } = useTranslation();
   return (
-    <section className="rounded-app border border-slate-200 bg-white p-5">
+    <section className="rounded-app border border-app-border bg-app-surface p-5">
       <h2 className="font-bold">{title}</h2>
       <div className="mt-4 h-72">
         <ResponsiveContainer height="100%" width="100%">

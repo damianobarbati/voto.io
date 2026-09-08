@@ -4,9 +4,20 @@ export const Field = ({ label, name, placeholder, required = false, textarea = f
   <label className="block font-semibold">
     {label}
     {textarea ? (
-      <textarea className="mt-1.5 min-h-28 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" name={name} placeholder={placeholder} required={required} />
+      <textarea
+        className="mt-1.5 min-h-28 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal"
+        name={name}
+        placeholder={placeholder}
+        required={required}
+      />
     ) : (
-      <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" name={name} placeholder={placeholder} required={required} type={type} />
+      <input
+        className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal"
+        name={name}
+        placeholder={placeholder}
+        required={required}
+        type={type}
+      />
     )}
   </label>
 );

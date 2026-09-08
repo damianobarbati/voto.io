@@ -28,7 +28,7 @@ export const PollRowSchema = z
     opens_at: z.iso.datetime(),
     closes_at: z.iso.datetime(),
     type: z.enum(["single_choice", "multiple_choice", "ranked_choice"]),
-    ranked_method: z.enum(["irv", "borda"]).nullable(),
+    ranked_method: z.literal("irv").nullable(),
     gender_restriction: z.enum(["m", "f"]).nullable(),
     age_min: z.number().int().nullable(),
     age_max: z.number().int().nullable(),

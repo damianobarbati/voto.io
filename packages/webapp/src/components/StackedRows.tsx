@@ -8,7 +8,7 @@ export const StackedRows = ({ rows }: StackedRowsProps) => (
   <div className="space-y-2">
     {rows.map((row) => (
       <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2" key={row.label}>
-        <span className="font-medium text-slate-600">{row.label}</span>
+        <span className="font-medium text-app-text-muted">{row.label}</span>
         <SplitBar men={row.men} women={row.women} />
       </div>
     ))}

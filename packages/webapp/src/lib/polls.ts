@@ -3,8 +3,6 @@ import { formatDate } from "#webapp/i18n.ts";
 
 export type VotingMethod = "One choice" | "Multiple choice" | "Ranked choice";
 
-export type RankedAlgorithm = "irv" | "borda";
-
 export type Poll = {
   id: string;
   title: string;
@@ -17,7 +15,6 @@ export type Poll = {
   authorName: string;
   closes: string;
   closesAt: string;
-  rankedAlgorithm?: RankedAlgorithm;
   groupId?: string;
 };
 
@@ -41,6 +38,5 @@ export const toPoll = (poll: ApiPoll): Poll => ({
   authorName: poll.creator_id,
   closes: formatDate({ date: poll.closes_at }),
   closesAt: poll.closes_at,
-  rankedAlgorithm: poll.ranked_method ?? undefined,
   groupId: poll.group_id ?? undefined,
 });

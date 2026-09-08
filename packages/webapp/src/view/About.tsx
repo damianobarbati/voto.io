@@ -6,7 +6,7 @@ export const About = () => (
   <div className="flex min-h-screen flex-col">
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-7 lg:py-16">
       <BackToVoto />
-      <p className="mt-8 font-bold text-blue-700 tracking-wider">ABOUT US</p>
+      <p className="mt-8 font-bold text-app-primary tracking-wider">ABOUT US</p>
       <article className="typography mt-2">
         <h1>Better decisions, made together.</h1>
         <p>

@@ -9,7 +9,7 @@ export const Checkout = () => {
     <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
       <h1 className="font-bold">Checkout</h1>
       <form
-        className="mt-7 space-y-5 rounded-app border border-slate-200 bg-white p-5 sm:p-7"
+        className="mt-7 space-y-5 rounded-app border border-app-border bg-app-surface p-5 sm:p-7"
         onSubmit={(event) => {
           event.preventDefault();
           navigate(`/my-subscription?plan=${plan.toLowerCase()}`);
@@ -26,7 +26,7 @@ export const Checkout = () => {
             ))}
           </div>
         </fieldset>
-        <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+        <button className="rounded-app bg-app-primary px-5 py-3 font-bold text-app-inverse" type="submit">
           Complete purchase
         </button>
       </form>

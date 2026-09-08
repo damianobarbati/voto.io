@@ -5,7 +5,7 @@ import { LocalizedLink as Link } from "#webapp/components/LocalizedLink.tsx";
 import { apiUrl } from "#webapp/env.ts";
 import { useLocalizedNavigate as useNavigate } from "#webapp/hooks/useLocalizedNavigate.ts";
 import { groupFor, groups } from "#webapp/lib/groups.ts";
-import type { RankedAlgorithm, VotingMethod } from "#webapp/lib/polls.ts";
+import type { VotingMethod } from "#webapp/lib/polls.ts";
 import { jwtStorageKey, store } from "#webapp/store.ts";
 import { Field } from "#webapp/ui/Field.tsx";
 import { SelectField } from "#webapp/ui/SelectField.tsx";
@@ -17,7 +17,6 @@ export const CreatePoll = () => {
   const user = store.getState().user;
   const [options, setOptions] = React.useState(["", ""]);
   const [method, setMethod] = React.useState<VotingMethod>("One choice");
-  const [rankedAlgorithm, setRankedAlgorithm] = React.useState<RankedAlgorithm>("irv");
   const [groupId, setGroupId] = React.useState("Public");
   const [countryScope, setCountryScope] = React.useState("Worldwide");
   const [error, setError] = React.useState("");
@@ -39,7 +38,7 @@ export const CreatePoll = () => {
       opens_at: new Date(String(fields.get("opens_at"))).toISOString(),
       closes_at: new Date(String(fields.get("closes_at"))).toISOString(),
       type: method === "One choice" ? "single_choice" : method === "Multiple choice" ? "multiple_choice" : "ranked_choice",
-      ranked_method: method === "Ranked choice" ? rankedAlgorithm : null,
+      ranked_method: method === "Ranked choice" ? "irv" : null,
       gender_restriction: fields.get("gender") === "Women" ? "f" : fields.get("gender") === "Men" ? "m" : null,
       age_min: null,
       age_max: null,
@@ -68,11 +67,11 @@ export const CreatePoll = () => {
   };
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500" to="/poll/list">
+      <Link className="font-bold text-app-text-muted" to="/poll/list">
         ← Back to polls
       </Link>
       <h1 className="mt-5 font-bold">Create a poll</h1>
-      <form className="mt-7 space-y-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7" onSubmit={submit}>
+      <form className="mt-7 space-y-6 rounded-app border border-app-border bg-app-surface p-5 sm:p-7" onSubmit={submit}>
         <fieldset className="space-y-4">
           {/*<legend className="font-bold">Poll details</legend>*/}
           <Field label="Poll name" name="name" placeholder="e.g. Q4 strategic priorities" required />
@@ -90,15 +89,6 @@ export const CreatePoll = () => {
             options={["One choice", "Multiple choice", "Ranked choice"]}
             value={method}
           />
-          {method === "Ranked choice" && (
-            <SelectField
-              className="mt-2"
-              label="Ranked-choice algorithm"
-              onChange={(event) => setRankedAlgorithm(event.target.value === "Instant runoff (IRV)" ? "irv" : "borda")}
-              options={["Instant runoff (IRV)", "Borda count"]}
-              value={rankedAlgorithm === "irv" ? "Instant runoff (IRV)" : "Borda count"}
-            />
-          )}
         </fieldset>
         <fieldset>
           {/*<legend className="font-bold">Voting options</legend>*/}
@@ -107,7 +97,7 @@ export const CreatePoll = () => {
             {options.map((option, index) => (
               <label className="flex gap-2" key={`option-${index}`}>
                 <input
-                  className="grow rounded-app border border-slate-300 px-3 py-2.5"
+                  className="grow rounded-app border border-app-border px-3 py-2.5"
                   onChange={(event) => setOptions(options.map((value, optionIndex) => (optionIndex === index ? event.target.value : value)))}
                   placeholder={`Option ${index + 1}`}
                   value={option}
@@ -115,7 +105,7 @@ export const CreatePoll = () => {
                 {options.length > 2 && (
                   <button
                     aria-label={`Remove option ${index + 1}`}
-                    className="p-2 text-slate-500"
+                    className="p-2 text-app-text-muted"
                     onClick={() => setOptions(options.filter((_, optionIndex) => optionIndex !== index))}
                     type="button"
                   >
@@ -126,16 +116,16 @@ export const CreatePoll = () => {
             ))}
           </div>
           {automaticNoChoice && (
-            <div className="mt-2 flex items-center gap-2 rounded-app border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-900">
+            <div className="mt-2 flex items-center gap-2 rounded-app border border-app-info bg-app-info px-3 py-2.5 text-app-text">
               <FiCheck /> No suitable option. <span className="ml-auto font-bold">Automatic</span>
             </div>
           )}
           {options.length < 5 && (
-            <button className="mt-3 font-bold text-blue-700" onClick={() => setOptions([...options, ""])} type="button">
+            <button className="mt-3 font-bold text-app-primary" onClick={() => setOptions([...options, ""])} type="button">
               + Add option
             </button>
           )}
-          <p className="mt-2 text-slate-500">One-choice and multiple-choice polls require at least two options.</p>
+          <p className="mt-2 text-app-text-muted">One-choice and multiple-choice polls require at least two options.</p>
         </fieldset>
         <fieldset className="space-y-3">
           {/*<legend className="font-bold">Access control</legend>*/}
@@ -146,7 +136,7 @@ export const CreatePoll = () => {
             options={["Public", ...ownedGroups.map((group) => group.name)]}
             value={groupId === "Public" ? "Public" : groupFor(groupId)?.name}
           />
-          <p className="text-slate-500">Private polls require an active group membership and all demographic requirements.</p>
+          <p className="text-app-text-muted">Private polls require an active group membership and all demographic requirements.</p>
         </fieldset>
         <fieldset>
           {/*<legend className="font-bold">Eligible voters</legend>*/}
@@ -163,12 +153,12 @@ export const CreatePoll = () => {
                 value={countryScope}
               />
             ) : (
-              <p className="self-end text-slate-500">Country: {user?.country ?? "Not specified"}</p>
+              <p className="self-end text-app-text-muted">Country: {user?.country ?? "Not specified"}</p>
             )}
           </div>
         </fieldset>
-        {error && <p className="text-red-600">{error}</p>}
-        <button className="w-full rounded-app bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-600" type="submit">
+        {error && <p className="text-app-danger">{error}</p>}
+        <button className="w-full rounded-app bg-app-primary px-5 py-3 font-bold text-app-inverse hover:bg-app-primary-hover" type="submit">
           Publish poll
         </button>
       </form>

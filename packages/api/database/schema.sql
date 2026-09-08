@@ -145,7 +145,7 @@ create table "polls" (
   "opens_at" timestamptz not null,
   "closes_at" timestamptz not null,
   "type" text not null check (type in ('single_choice', 'multiple_choice', 'ranked_choice')),
-  "ranked_method" text check (ranked_method in ('irv', 'borda')),
+  "ranked_method" text check (ranked_method = 'irv'),
   "gender_restriction" text check (gender_restriction in ('m', 'f')),
   "age_min" smallint check (age_min between 0 and 150),
   "age_max" smallint check (age_max between 0 and 150),

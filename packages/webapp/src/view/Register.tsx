@@ -41,78 +41,83 @@ export const Register = () => {
   return (
     <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
       <h1 className="font-bold">Join voto</h1>
-      <form className="mt-7 grid gap-4 rounded-app border border-slate-200 bg-white p-5 sm:grid-cols-2" onSubmit={form.handleSubmit(registerUser)}>
+      <form className="mt-7 grid gap-4 rounded-app border border-app-border bg-app-surface p-5 sm:grid-cols-2" onSubmit={form.handleSubmit(registerUser)}>
         <label className="block font-semibold">
           First name
-          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("first_name")} />
-          {form.formState.errors.first_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.first_name.message}</span>}
+          <input className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal" {...form.register("first_name")} />
+          {form.formState.errors.first_name && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.first_name.message}</span>}
         </label>
         <label className="block font-semibold">
           Last name
-          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("last_name")} />
-          {form.formState.errors.last_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.last_name.message}</span>}
+          <input className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal" {...form.register("last_name")} />
+          {form.formState.errors.last_name && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.last_name.message}</span>}
         </label>
         <label className="block font-semibold">
           Birth date
-          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="date" {...form.register("birth_date")} />
-          {form.formState.errors.birth_date && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.birth_date.message}</span>}
+          <input className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal" type="date" {...form.register("birth_date")} />
+          {form.formState.errors.birth_date && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.birth_date.message}</span>}
         </label>
         <label className="block font-semibold">
           Gender
-          <select className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("gender")}>
+          <select className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal" {...form.register("gender")}>
             <option value="">Select gender</option>
             <option value="f">Woman</option>
             <option value="m">Man</option>
           </select>
-          {form.formState.errors.gender && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.gender.message}</span>}
+          {form.formState.errors.gender && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.gender.message}</span>}
         </label>
         <label className="block font-semibold">
           City
-          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("city")} />
-          {form.formState.errors.city && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.city.message}</span>}
+          <input className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal" {...form.register("city")} />
+          {form.formState.errors.city && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.city.message}</span>}
         </label>
         <label className="block font-semibold">
           Country
-          <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" maxLength={2} {...form.register("country")} />
-          {form.formState.errors.country && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.country.message}</span>}
+          <input className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal" maxLength={2} {...form.register("country")} />
+          {form.formState.errors.country && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.country.message}</span>}
         </label>
         <label className="block font-semibold">
           Gross annual income
           <input
-            className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal"
             min="0"
             type="number"
             {...form.register("income", { valueAsNumber: true })}
           />
-          {form.formState.errors.income && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.income.message}</span>}
+          {form.formState.errors.income && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.income.message}</span>}
         </label>
         <label className="block font-semibold">
           Email
-          <input autoComplete="email" className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
-          {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
+          <input
+            autoComplete="email"
+            className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal"
+            type="email"
+            {...form.register("email")}
+          />
+          {form.formState.errors.email && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.email.message}</span>}
         </label>
         <label className="block font-semibold sm:col-span-2">
           Password
           <input
             autoComplete="new-password"
-            className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal"
             type="password"
             {...form.register("password")}
           />
-          {form.formState.errors.password && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.password.message}</span>}
+          {form.formState.errors.password && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.password.message}</span>}
         </label>
         <input type="hidden" {...form.register("language")} />
-        {error && <p className="text-red-600 sm:col-span-2">Unable to create account</p>}
+        {error && <p className="text-app-danger sm:col-span-2">Unable to create account</p>}
         <button
-          className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:col-span-2"
+          className="rounded-app bg-app-primary px-5 py-3 font-bold text-app-inverse disabled:cursor-not-allowed disabled:bg-app-disabled sm:col-span-2"
           disabled={isMutating}
           type="submit"
         >
           Create account
         </button>
-        <p className="text-center text-slate-600 sm:col-span-2">
+        <p className="text-center text-app-text-muted sm:col-span-2">
           Already registered?{" "}
-          <Link className="font-bold text-blue-700" to="/login">
+          <Link className="font-bold text-app-primary" to="/login">
             Log in
           </Link>
         </p>

@@ -29,10 +29,10 @@ export const LiveVoter = () => {
   if (viewportWidth > phoneMaximumWidth) return <LivePollDeviceGate message="Live poll participation works only on a phone." />;
   if (step === "register") {
     return (
-      <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-white px-5 py-8">
-        <FiSmartphone className="size-7.5 text-blue-700" />
+      <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-app-surface px-5 py-8">
+        <FiSmartphone className="size-7.5 text-app-primary" />
         <h1 className="mt-5 font-bold">Join Elena Rossi's live poll</h1>
-        <p className="mt-2 text-slate-600">Provide details to confirm eligibility.</p>
+        <p className="mt-2 text-app-text-muted">Provide details to confirm eligibility.</p>
         <form
           className="mt-6 grid gap-4"
           onSubmit={async (event) => {
@@ -50,7 +50,7 @@ export const LiveVoter = () => {
           <Field label="Gross annual income" type="number" />
           <Field label="City" />
           <Field label="Country" />
-          <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+          <button className="rounded-app bg-app-primary px-5 py-3 font-bold text-app-inverse" type="submit">
             Continue
           </button>
         </form>
@@ -59,14 +59,14 @@ export const LiveVoter = () => {
   }
   if (step === "waiting") {
     return (
-      <main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-[480px] flex-col items-center justify-center bg-white px-5 text-center">
-        <svg aria-label="Waiting for the poll to open" className="size-28 animate-pulse text-blue-600" viewBox="0 0 100 100">
+      <main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-[480px] flex-col items-center justify-center bg-app-surface px-5 text-center">
+        <svg aria-label="Waiting for the poll to open" className="size-28 animate-pulse text-app-primary" viewBox="0 0 100 100">
           <circle cx="50" cy="50" fill="none" r="38" stroke="currentColor" strokeWidth="8" />
           <path d="M50 25v27l18 11" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="8" />
         </svg>
         <h1 className="mt-6 font-bold">Waiting for the poll</h1>
-        <p className="mt-2 text-slate-600">The creator will open it soon.</p>
-        <button className="mt-6 font-bold text-blue-700" onClick={() => setStep("voting")} type="button">
+        <p className="mt-2 text-app-text-muted">The creator will open it soon.</p>
+        <button className="mt-6 font-bold text-app-primary" onClick={() => setStep("voting")} type="button">
           Poll is open
         </button>
       </main>
@@ -74,35 +74,35 @@ export const LiveVoter = () => {
   }
   if (step === "quota") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-[480px] flex-col items-center justify-center bg-white px-5 text-center">
-        <FiUsers className="size-16 text-amber-600" />
+      <main className="mx-auto flex min-h-screen max-w-[480px] flex-col items-center justify-center bg-app-surface px-5 text-center">
+        <FiUsers className="size-16 text-app-warning" />
         <h1 className="mt-5 font-bold">Audience limit reached</h1>
-        <p className="mt-2 font-semibold text-amber-700">Waiting the creator to increase the poll audience...</p>
+        <p className="mt-2 font-semibold text-app-warning">Waiting the creator to increase the poll audience...</p>
       </main>
     );
   }
   if (step === "thanks")
     return (
-      <main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-[480px] flex-col items-center justify-center bg-white px-5 text-center">
-        <FiCheck className="size-16 text-emerald-600" />
+      <main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-[480px] flex-col items-center justify-center bg-app-surface px-5 text-center">
+        <FiCheck className="size-16 text-app-success" />
         <h1 className="mt-5 font-bold">Thank you</h1>
-        <p className="mt-2 text-slate-600">Your vote was recorded.</p>
+        <p className="mt-2 text-app-text-muted">Your vote was recorded.</p>
       </main>
     );
   return (
-    <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-white px-5 py-8">
-      <p className="font-bold text-blue-700 tracking-wider">LIVE POLL</p>
+    <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-app-surface px-5 py-8">
+      <p className="font-bold text-app-primary tracking-wider">LIVE POLL</p>
       <h1 className="mt-2 font-bold">{livePoll?.name ?? "Loading poll"}</h1>
       <div className="mt-7 space-y-3">
         {(livePoll?.options ?? []).map((option) => (
-          <label className="flex cursor-pointer items-center gap-3 rounded-app border border-slate-200 p-4 has-checked:border-blue-600 has-checked:bg-blue-50" key={option.id}>
+          <label className="flex cursor-pointer items-center gap-3 rounded-app border border-app-border p-4 has-checked:border-app-primary has-checked:bg-app-info" key={option.id}>
             <input checked={choice === option.id} name="live-vote" onChange={() => setChoice(option.id)} type="radio" />
             {option.name}
           </label>
         ))}
       </div>
       <button
-        className="mt-7 w-full rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:bg-slate-300"
+        className="mt-7 w-full rounded-app bg-app-primary px-5 py-3 font-bold text-app-inverse disabled:bg-app-disabled"
         disabled={!choice}
         onClick={async () => {
           if (!id) return;

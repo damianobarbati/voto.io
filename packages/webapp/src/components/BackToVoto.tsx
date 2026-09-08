@@ -5,7 +5,7 @@ export const BackToVoto = () => {
   const { t } = useTranslation();
 
   return (
-    <Link className="font-bold text-blue-700 no-underline hover:text-blue-600" to="/">
+    <Link className="font-bold text-app-primary no-underline hover:text-app-primary" to="/">
       ← {t("ui.termsBack")}
     </Link>
   );

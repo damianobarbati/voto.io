@@ -12,8 +12,8 @@ export const ChoiceResults = () => (
               {result.percentage}% · {result.votes}
             </strong>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-app bg-slate-100">
-            <div className="h-full rounded-app bg-blue-600" style={{ width: `${result.percentage}%` }} />
+          <div className="mt-2 h-2 overflow-hidden rounded-app bg-app-subtle">
+            <div className="h-full rounded-app bg-app-primary" style={{ width: `${result.percentage}%` }} />
           </div>
         </div>
       ))}

@@ -49,15 +49,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --silent --frozen-lockfile --prefer-offline
 
-      - name: Cache playwright
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install playwright
-        run: pnpm -F e2e exec playwright install --with-deps chromium
-
       - name: Lint
         run: pnpm lint
 
@@ -75,6 +66,14 @@ jobs:
           pnpm -F api db:migrate
           pnpm -F api db:seed
 
+      - name: Test package "api"
+        run: pnpm -F api test
+
+      - name: Test package "webapp"
+        run: pnpm -F webapp test
+
+      - name: E2E testing
+        run: |
           # start api service
           pnpm -F api start:dev &
           timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:8080/healthcheck); do printf .; sleep 1; done'
@@ -83,14 +82,8 @@ jobs:
           pnpm -F webapp build:dev &
           timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:3000); do printf .; sleep 1; done'
 
-      - name: Test package "api"
-        run: pnpm -F api test
-
-      - name: Test package "webapp"
-        run: pnpm -F webapp test
-
-      - name: E2E testing
-        run: pnpm -F e2e test
+          pnpm -F e2e exec playwright install --with-deps chromium
+          pnpm -F e2e test
 
   build-and-deploy:
     timeout-minutes: 5

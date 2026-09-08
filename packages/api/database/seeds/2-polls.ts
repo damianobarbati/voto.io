@@ -16,7 +16,7 @@ const createPollRows = ({ database }: { database: Knex }) => {
       opens_at: database.raw("now() - interval '1 day'"),
       closes_at: database.raw(`now() + interval '${(index % 30) + 1} days'`),
       type,
-      ranked_method: type === "ranked_choice" ? (index % 2 === 0 ? "irv" : "borda") : null,
+      ranked_method: type === "ranked_choice" ? "irv" : null,
     };
   });
   return result;

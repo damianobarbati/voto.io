@@ -94,13 +94,13 @@ export const PollList = () => {
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="mt-1 font-bold">{total} polls open to you</h1>
-        <Link className="hidden items-center gap-2 rounded-app bg-blue-700 px-4 py-3 font-bold text-white no-underline sm:inline-flex" to="/poll/new">
+        <Link className="hidden items-center gap-2 rounded-app bg-app-primary px-4 py-3 font-bold text-app-inverse no-underline sm:inline-flex" to="/poll/new">
           <FiPlus /> Create poll
         </Link>
       </div>
       <div className="mt-7 flex flex-col gap-2 lg:flex-row lg:items-stretch">
-        <label className="flex min-w-0 items-center gap-2 rounded-app border border-slate-300 bg-white px-3 focus-within:ring-2 focus-within:ring-blue-600 lg:flex-1">
-          <FiSearch className="shrink-0 text-slate-400" />
+        <label className="flex min-w-0 items-center gap-2 rounded-app border border-app-border bg-app-surface px-3 focus-within:ring-2 focus-within:ring-app-primary lg:flex-1">
+          <FiSearch className="shrink-0 text-app-text-muted" />
           <input
             aria-label="Search polls"
             className="min-w-0 grow border-0 py-3 outline-none"
@@ -111,7 +111,7 @@ export const PollList = () => {
         </label>
         <button
           aria-pressed={showMyGroups}
-          className={`shrink-0 rounded-app border px-3 py-3 ${showMyGroups ? "border-blue-600 bg-blue-50 font-bold text-blue-800" : "border-slate-300 bg-white"}`}
+          className={`shrink-0 rounded-app border px-3 py-3 ${showMyGroups ? "border-app-primary bg-app-info font-bold text-app-text" : "border-app-border bg-app-surface"}`}
           onClick={() => setShowMyGroups(!showMyGroups)}
           type="button"
         >
@@ -119,7 +119,7 @@ export const PollList = () => {
         </button>
         <select
           aria-label={t("pollList.sortLabel")}
-          className="h-[calc(1lh+1.5rem+2px)] min-w-0 rounded-app border border-slate-300 bg-white px-3 py-3 lg:shrink-0"
+          className="h-[calc(1lh+1.5rem+2px)] min-w-0 rounded-app border border-app-border bg-app-surface px-3 py-3 lg:shrink-0"
           onChange={(event) => setSort(event.target.value as PollSort)}
           value={sort}
         >
@@ -155,7 +155,7 @@ export const PollList = () => {
           </button>
         </div>
       )}
-      {!isLoading && !error && total === 0 && <p className="py-6 text-slate-500">No polls found.</p>}
+      {!isLoading && !error && total === 0 && <p className="py-6 text-app-text-muted">No polls found.</p>}
     </main>
   );
 };

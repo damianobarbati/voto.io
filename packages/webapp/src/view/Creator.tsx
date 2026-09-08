@@ -9,18 +9,18 @@ export const Creator = () => {
   const visiblePolls = polls.filter((poll) => (pollTab === "open" ? memberCanAccess(poll) && poll.id !== "partner-review" : poll.id === "school-meals"));
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <p className="font-bold text-blue-700 tracking-wider">CREATOR</p>
+      <p className="font-bold text-app-primary tracking-wider">CREATOR</p>
       <h1 className="mt-1 font-bold">Elena R.</h1>
-      <div className="mt-7 flex border-slate-200 border-b">
+      <div className="mt-7 flex border-app-border border-b">
         <button
-          className={`px-4 py-2 font-bold ${pollTab === "open" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          className={`px-4 py-2 font-bold ${pollTab === "open" ? "border-app-primary border-b-2 text-app-primary" : "text-app-text-muted"}`}
           onClick={() => setPollTab("open")}
           type="button"
         >
           Open polls
         </button>
         <button
-          className={`px-4 py-2 font-bold ${pollTab === "closed" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          className={`px-4 py-2 font-bold ${pollTab === "closed" ? "border-app-primary border-b-2 text-app-primary" : "text-app-text-muted"}`}
           onClick={() => setPollTab("closed")}
           type="button"
         >

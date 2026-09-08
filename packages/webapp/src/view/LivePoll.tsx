@@ -35,21 +35,21 @@ export const LivePoll = () => {
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-7">
       {id === "new" && (
-        <Link className="inline-flex font-bold text-blue-700 no-underline hover:text-blue-900" to="/">
+        <Link className="inline-flex font-bold text-app-primary no-underline hover:text-app-text" to="/">
           Back to voto.io
         </Link>
       )}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-bold text-blue-700 tracking-wider">LIVE POLL</p>
+          <p className="font-bold text-app-primary tracking-wider">LIVE POLL</p>
           <h1 className="mt-1 font-bold">City forum</h1>
         </div>
-        <div className="text-center text-slate-600">
+        <div className="text-center text-app-text-muted">
           <LiveQr />
           <p className="mt-2 font-bold">
             {viewers} / {liveAudienceLimit} live users
           </p>
-          <button className="mt-2 inline-flex items-center gap-1 font-bold text-blue-700" onClick={copyVoterLink} type="button">
+          <button className="mt-2 inline-flex items-center gap-1 font-bold text-app-primary" onClick={copyVoterLink} type="button">
             {isLinkCopied ? <FiCheck /> : <FiCopy />}
             {isLinkCopied ? "Link copied" : "Copy link"}
           </button>
@@ -57,7 +57,7 @@ export const LivePoll = () => {
       </div>
       {status === "setup" && (
         <form
-          className="mt-7 max-w-3xl space-y-5 rounded-app border border-slate-200 bg-white p-5 sm:p-7"
+          className="mt-7 max-w-3xl space-y-5 rounded-app border border-app-border bg-app-surface p-5 sm:p-7"
           onSubmit={async (event) => {
             event.preventDefault();
             const token = localStorage.getItem(jwtStorageKey);
@@ -82,14 +82,14 @@ export const LivePoll = () => {
         >
           <label className="block font-semibold">
             Question
-            <input className="mt-1.5 w-full rounded-app border border-slate-300 px-3 py-2.5 font-normal" onChange={(event) => setQuestion(event.target.value)} value={question} />
+            <input className="mt-1.5 w-full rounded-app border border-app-border px-3 py-2.5 font-normal" onChange={(event) => setQuestion(event.target.value)} value={question} />
           </label>
           <div>
             <p className="font-bold">Options</p>
             <div className="mt-2 space-y-2">
               {options.map((option, index) => (
                 <input
-                  className="w-full rounded-app border border-slate-300 px-3 py-2.5"
+                  className="w-full rounded-app border border-app-border px-3 py-2.5"
                   key={`live-option-${index}`}
                   onChange={(event) => updateOption({ index, value: event.target.value })}
                   value={option}
@@ -97,19 +97,19 @@ export const LivePoll = () => {
               ))}
             </div>
             {options.length < 5 && (
-              <button className="mt-3 font-bold text-blue-700" onClick={addOption} type="button">
+              <button className="mt-3 font-bold text-app-primary" onClick={addOption} type="button">
                 + Add option
               </button>
             )}
           </div>
-          <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
+          <button className="rounded-app bg-app-primary px-5 py-3 font-bold text-app-inverse" type="submit">
             Open poll
           </button>
         </form>
       )}
       {status === "open" && (
-        <section className="mt-7 max-w-3xl rounded-app border border-slate-200 bg-white p-5 sm:p-7">
-          <span className="rounded-app bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700">OPEN</span>
+        <section className="mt-7 max-w-3xl rounded-app border border-app-border bg-app-surface p-5 sm:p-7">
+          <span className="rounded-app bg-app-success-subtle px-2.5 py-1 font-bold text-app-success">OPEN</span>
           <h2 className="mt-4 font-bold">{question}</h2>
           <div className="mt-6">
             <div className="flex justify-between font-bold">
@@ -118,23 +118,23 @@ export const LivePoll = () => {
                 {voters} / {viewers} voted
               </span>
             </div>
-            <div className="mt-2 h-3 overflow-hidden rounded-app bg-slate-100">
-              <div className="h-full rounded-app bg-blue-600" style={{ width: `${(voters / viewers) * 100}%` }} />
+            <div className="mt-2 h-3 overflow-hidden rounded-app bg-app-subtle">
+              <div className="h-full rounded-app bg-app-primary" style={{ width: `${(voters / viewers) * 100}%` }} />
             </div>
           </div>
-          <button className="mt-7 rounded-app bg-slate-950 px-5 py-3 font-bold text-white" onClick={() => setStatus("closed")} type="button">
+          <button className="mt-7 rounded-app bg-app-text px-5 py-3 font-bold text-app-inverse" onClick={() => setStatus("closed")} type="button">
             Close poll
           </button>
           {overAudienceLimit && (
-            <Link className="ml-3 inline-block rounded-app border border-blue-700 px-5 py-3 font-bold text-blue-700 no-underline" to="/my-subscription">
+            <Link className="ml-3 inline-block rounded-app border border-app-primary px-5 py-3 font-bold text-app-primary no-underline" to="/my-subscription">
               Upgrade plan
             </Link>
           )}
         </section>
       )}
       {status === "closed" && (
-        <section className="mt-7 max-w-3xl rounded-app border border-slate-200 bg-white p-5 sm:p-7">
-          <span className="rounded-app bg-slate-100 px-2.5 py-1 font-bold text-slate-700">CLOSED</span>
+        <section className="mt-7 max-w-3xl rounded-app border border-app-border bg-app-surface p-5 sm:p-7">
+          <span className="rounded-app bg-app-subtle px-2.5 py-1 font-bold text-app-text-muted">CLOSED</span>
           <h2 className="mt-4 font-bold">{question}</h2>
           <div className="mt-6 space-y-4">
             {[
@@ -142,13 +142,13 @@ export const LivePoll = () => {
               { label: options[1], percentage: 34 },
               { label: options[2], percentage: 18 },
             ].map(({ label, percentage }) => (
-              <div className="rounded-app border border-slate-100 p-4" key={label}>
+              <div className="rounded-app border border-app-border-subtle p-4" key={label}>
                 <div className="flex justify-between">
                   <span>{label}</span>
                   <strong>{percentage}%</strong>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-app bg-slate-100">
-                  <div className="h-full rounded-app bg-blue-600" style={{ width: `${percentage}%` }} />
+                <div className="mt-2 h-2 overflow-hidden rounded-app bg-app-subtle">
+                  <div className="h-full rounded-app bg-app-primary" style={{ width: `${percentage}%` }} />
                 </div>
                 <LiveDemographicPanel />
               </div>

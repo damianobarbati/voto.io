@@ -38,15 +38,15 @@ const cityRows: CityRow[] = [
 ];
 
 export const LiveDemographicPanel = () => (
-  <details className="mt-4 border-slate-100 border-t pt-4">
-    <summary className="cursor-pointer font-bold text-blue-700">Demographic breakdown</summary>
+  <details className="mt-4 border-app-border-subtle border-t pt-4">
+    <summary className="cursor-pointer font-bold text-app-primary">Demographic breakdown</summary>
     <div className="mt-5 space-y-6">
       <section>
         <h3 className="font-bold">Gender</h3>
         <div className="mt-2">
           <SplitBar men={48} women={52} />
         </div>
-        <div className="mt-1 flex justify-between text-slate-500">
+        <div className="mt-1 flex justify-between text-app-text-muted">
           <span>Men</span>
           <span>Women</span>
         </div>

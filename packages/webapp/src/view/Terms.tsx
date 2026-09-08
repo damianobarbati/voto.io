@@ -85,23 +85,23 @@ export const Terms = () => {
     <div className="flex min-h-screen flex-col">
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-7 lg:py-16">
         <BackToVoto />
-        <header className="mt-8 border-slate-200 border-b pb-8">
-          <p className="font-bold text-blue-700 tracking-wider">{t("ui.legal")}</p>
+        <header className="mt-8 border-app-border border-b pb-8">
+          <p className="font-bold text-app-primary tracking-wider">{t("ui.legal")}</p>
           <h1 className="mt-2 font-bold tracking-tight">{t("ui.termsTitle")}</h1>
-          <p className="mt-4 text-slate-600">{t("ui.lastUpdated", { date: lastUpdated })}</p>
-          <p className="mt-6 text-slate-600">{t("ui.termsIntro")}</p>
+          <p className="mt-4 text-app-text-muted">{t("ui.lastUpdated", { date: lastUpdated })}</p>
+          <p className="mt-6 text-app-text-muted">{t("ui.termsIntro")}</p>
         </header>
         <div className="space-y-10 py-10">
           {sections.map((section) => (
             <section key={section.title}>
               <h2 className="font-bold tracking-tight">{section.title}</h2>
               {section.paragraphs.map((paragraph) => (
-                <p className="mt-3 text-slate-600" key={paragraph}>
+                <p className="mt-3 text-app-text-muted" key={paragraph}>
                   {paragraph}
                 </p>
               ))}
               {section.items && (
-                <ul className="mt-3 list-disc space-y-2 pl-6 text-slate-600">
+                <ul className="mt-3 list-disc space-y-2 pl-6 text-app-text-muted">
                   {section.items.map((item) => (
                     <li key={item}>{item}</li>
                   ))}

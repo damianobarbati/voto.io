@@ -36,24 +36,33 @@ export const Login = () => {
   return (
     <main className="mx-auto max-w-md px-4 py-8 sm:px-7">
       <h1 className="font-bold">Log in</h1>
-      <form className="mt-7 space-y-5 rounded-app border border-slate-200 bg-white p-5" onSubmit={form.handleSubmit(login)}>
+      <form className="mt-7 space-y-5 rounded-app border border-app-border bg-app-surface p-5" onSubmit={form.handleSubmit(login)}>
         <label className="block font-semibold">
           Email
-          <input autoComplete="email" className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
-          {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
+          <input
+            autoComplete="email"
+            className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal"
+            type="email"
+            {...form.register("email")}
+          />
+          {form.formState.errors.email && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.email.message}</span>}
         </label>
         <label className="block font-semibold">
           Password
           <input
             autoComplete="current-password"
-            className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal"
+            className="mt-1.5 w-full rounded-app border border-app-border bg-app-surface px-3 py-2.5 font-normal"
             type="password"
             {...form.register("password")}
           />
-          {form.formState.errors.password && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.password.message}</span>}
+          {form.formState.errors.password && <span className="mt-1 block font-normal text-app-danger">{form.formState.errors.password.message}</span>}
         </label>
-        {error && <p className="text-red-600">Invalid email or password</p>}
-        <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isMutating} type="submit">
+        {error && <p className="text-app-danger">Invalid email or password</p>}
+        <button
+          className="rounded-app bg-app-primary px-5 py-3 font-bold text-app-inverse disabled:cursor-not-allowed disabled:bg-app-disabled"
+          disabled={isMutating}
+          type="submit"
+        >
           Log in
         </button>
       </form>

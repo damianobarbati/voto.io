@@ -56,12 +56,12 @@ export const ResultsPage = () => {
   if (group && !memberCanAccess(poll)) return <AccessDenied group={group} />;
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500" to={`/poll/${poll.id}`}>
+      <Link className="font-bold text-app-text-muted" to={`/poll/${poll.id}`}>
         ← Back to poll
       </Link>
       <div className="mt-5 flex justify-between gap-3">
         <div>
-          <p className="font-bold text-blue-700 tracking-wider">RESULTS</p>
+          <p className="font-bold text-app-primary tracking-wider">RESULTS</p>
           <h1 className="mt-1 font-bold">{poll.title}</h1>
         </div>
         {group && <LockBadge group={group} />}
@@ -72,10 +72,10 @@ export const ResultsPage = () => {
         <Metric icon={<FiClock />} label="Time remaining" value={poll.closes} />
         <Metric icon={<FiCheck />} label="Abstention rate" value={`${abstentionRate.toFixed(1)}%`} />
       </section>
-      <section className="mt-6 rounded-app border border-slate-200 bg-white p-5">
+      <section className="mt-6 rounded-app border border-app-border bg-app-surface p-5">
         {poll.votingMethod === "One choice" && <ChoiceResults />}
         {poll.votingMethod === "Multiple choice" && <MultipleChoiceResults />}
-        {poll.votingMethod === "Ranked choice" && <RankedChoiceResults algorithm={poll.rankedAlgorithm ?? "irv"} />}
+        {poll.votingMethod === "Ranked choice" && <RankedChoiceResults />}
       </section>
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
         <DemographicChart data={ageBreakdown} title="Age range" />

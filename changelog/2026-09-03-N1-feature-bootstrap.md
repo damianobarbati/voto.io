@@ -56,9 +56,7 @@ When creating a poll, the user must provide:
 - if it's a one-choice poll or multiple choice poll or ranked choice poll
 - options for the poll (max 5)
 
-If the creator selects a ranked-choice poll, then he is given the choice between:
-- Instant runoff (majority-based - IRV): Eliminates lowest-ranked options in successive rounds until one option secures an absolute majority (>50%). Ideal for electing a single clear winner.
-- Bord count: (Consensus-based): Assigns decreasing point values based on rank position (e.g., 1st = N points, 2nd = N-1 points). Sums all points to determine the winner. Ideal for finding the broadest compromise option.
+Ranked-choice polls use instant runoff (IRV). It eliminates the lowest-ranked options in successive rounds until one option secures an absolute majority (>50%).
 
 The poll page (at /poll/:id) is the page where users can see the details of a poll, vote it, or see the results.
 When voting a poll, the user selects:
@@ -198,15 +196,12 @@ Primary Results Box:
 
 ### Ranked-choice polls
 
-Primary Results Box (Algorithm Dependent):
-If Algorithm is `irv` (Instant-Runoff Voting):
+Primary Results Box:
+- Instant-runoff voting (IRV):
 - **Winner Badge:** Highlight the winning option that reached >50% majority.
 - **Elimination Rounds Breakdown:** Step-by-step table or flow diagram showing:
   - Round 1 first-preference shares.
   - Successive rounds showing candidate eliminations and vote re-distributions until a majority winner is reached.
-    If Algorithm is `borda` (Borda Count):
-- **Final Ranking List:** Ranked options ordered by total accumulated points.
-- Displayed for each choice: **Total Borda Points** and **% Share of Total Points**.
 
 Preference Distribution Matrix Box
 - Heatmap or stacked bar chart showing how often each choice was placed at 1st rank, 2nd rank, 3rd rank, etc.
