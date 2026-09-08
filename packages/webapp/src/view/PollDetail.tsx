@@ -16,16 +16,28 @@ import { Spinner } from "#webapp/ui/Spinner.tsx";
 export const PollDetail = () => {
   const { id } = useParams();
   const { data: polls } = usePolls();
-  if (!polls) return <Spinner />;
-  const poll = polls.find((item) => item.id === id);
-  if (!poll) return <main className="mx-auto max-w-4xl px-4 py-8 sm:px-7">Poll not found.</main>;
-  const group = groupFor(poll.groupId);
-  const [single, setSingle] = React.useState(poll.options[0]);
+  const poll = polls ? polls.find((item) => item.id === id) : undefined;
+  const pollId = poll ? poll.id : null;
+  const [single, setSingle] = React.useState("");
   const [many, setMany] = React.useState<string[]>([]);
-  const [ranked, setRanked] = React.useState(poll.options);
+  const [ranked, setRanked] = React.useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState("");
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!poll) return;
+    setSingle(poll.options[0] ?? "");
+    setMany([]);
+    setRanked(poll.options);
+    setIsSubmitting(false);
+    setSubmitError("");
+    setIsSubmitted(false);
+  }, [pollId]);
+
+  if (!polls) return <Spinner />;
+  if (!poll) return <main className="mx-auto max-w-4xl px-4 py-8 sm:px-7">Poll not found.</main>;
+  const group = groupFor(poll.groupId);
   if (group && !memberCanAccess(poll)) return <AccessDenied group={group} />;
   const move = ({ source, target }: { source: string; target: string }) => {
     if (!source || source === target) return;
