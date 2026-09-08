@@ -52,11 +52,11 @@ jobs:
       - name: Cache playwright
         uses: actions/cache@v4
         with:
-          path: ~/.cache/playwright
+          path: ~/.cache/ms-playwright
           key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install playwright
-        run: pnpm -F e2e exec playwright install chromium
+        run: pnpm -F e2e exec playwright install --with-deps chromium
 
       - name: Lint
         run: pnpm lint
@@ -79,14 +79,10 @@ jobs:
         run: pnpm -F api test
 
       - name: Test package "webapp"
-        run: |
-          pnpm -F e2e exec playwright install chromium
-          pnpm -F webapp test
+        run:   pnpm -F webapp test
 
       - name: E2E testing
         run: |
-          pnpm -F e2e exec playwright install chromium
-
           # start api service
           pnpm -F api start:dev &
           timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:8080/healthcheck); do printf .; sleep 1; done'
