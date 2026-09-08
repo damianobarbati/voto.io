@@ -16,7 +16,7 @@ app.use(prettyJSON({ space: 2 }));
 app.use(trimTrailingSlash());
 app.use("*", cors({ origin: "http://localhost:3000" }));
 app.use("*", transaction());
-app.use("*", logger());
+if (process.env.NODE_ENV !== "test") app.use("*", logger());
 
 app.onError((error, c) => {
   c.error = error;

@@ -8,6 +8,8 @@ import {
   LivePollCreateRequestSchema,
   PollCreateRequestSchema,
   PollListRequestSchema,
+  PollPageRequestSchema,
+  PollPageResponseSchema,
   PollResultsSchema,
   PollSchema,
   PollVoteRequestSchema,
@@ -81,6 +83,23 @@ registerRoute(router, {
   meta: { section: "Polls", description: "List polls." },
   middlewares: [],
   handler: () => PollService.list(),
+});
+
+registerRoute(router, {
+  method: "get",
+  path: "/polls/page",
+  requestSchema: PollPageRequestSchema,
+  responseSchema: PollPageResponseSchema,
+  meta: {
+    section: "Polls",
+    description:
+      "List a page of polls. Accepts offset, limit (1–100), title query, comma-separated group_ids (empty for public polls), and sort. Returns polls, total, and nextOffset (null at the end). Turnout and vote sorting use the current zero-valued list metrics, with ID as the stable tie-breaker.",
+  },
+  middlewares: [],
+  handler: async (params) => {
+    const result = await PollService.page(params);
+    return result;
+  },
 });
 
 const PollIdRequestSchema = z.object({ id: z.string().min(1) }).strict();

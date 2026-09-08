@@ -2,7 +2,7 @@
 
 Make your voice heard.  
 Soon (but not yet) available [here](https://votoio.duckdns.org).  
-**This project is used to experiment with AI-driven development workflows and is 100% generated using AI.** 
+**This project is 100% generated using AI and agentic workflows.**
 
 ## Development
 
@@ -59,12 +59,13 @@ docker run --rm -ti -p 3000:80 webapp
 
 Run e2e testing:
 ```sh
+pnpm -F e2e exec playwright install
 pnpm -F e2e test
 ```
 
 Run load testing:
 ```sh
-pnpm -F api test:load-scenarios
+pnpm -F api test:load
 ```
 
 You can prefix with `DEBUG=http` to log every HTTP request being issued.

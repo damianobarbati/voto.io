@@ -12,6 +12,7 @@ const envDir = fileURLToPath(new URL("../../", import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, envDir, "VITE_");
+  const apiUrl = env.VITE_API_URL || "http://localhost:8080";
 
   return {
     envDir,
@@ -27,7 +28,7 @@ export default defineConfig(({ mode }) => {
     define: {
       "import.meta.env.APP_NAME": JSON.stringify(pkg.name),
       "import.meta.env.APP_VERSION": JSON.stringify(pkg.version),
-      "import.meta.env.VITE_API_URL": JSON.stringify(env.VITE_API_URL),
+      "import.meta.env.VITE_API_URL": JSON.stringify(apiUrl),
     },
     plugins: [
       tailwindcss(),
@@ -47,7 +48,7 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       env: {
-        VITE_API_URL: env.VITE_API_URL,
+        VITE_API_URL: apiUrl,
       },
       browser: {
         enabled: true,
