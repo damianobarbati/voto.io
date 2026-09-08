@@ -59,6 +59,7 @@ docker run --rm -ti -p 3000:80 webapp
 
 Run e2e testing:
 ```sh
+pnpm -F e2e exec playwright install
 pnpm -F e2e test
 ```
 
