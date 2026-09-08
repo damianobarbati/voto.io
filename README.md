@@ -65,7 +65,7 @@ pnpm -F e2e test
 
 Run load testing:
 ```sh
-pnpm -F api test:load-scenarios
+pnpm -F api test:load
 ```
 
 You can prefix with `DEBUG=http` to log every HTTP request being issued.

@@ -1,4 +1,4 @@
-# Feature: Bootstrap voto.io application
+# Fix: polls navigation
 
 ## Problem
 
@@ -33,11 +33,3 @@ logs made the test output noisy.
 - Suppress API request logging during tests while preserving it for development
   and production.
 - Add API, webapp, and end-to-end coverage, plus CI updates for webapp tests.
-
-## Verification
-
-- `pnpm tsc`
-- `pnpm -F webapp build`
-- `pnpm -F webapp test -- Home.spec.tsx`
-- `pnpm -F api test`
-- `pnpm exec biome check packages/webapp/src/style.css packages/webapp/src/components packages/webapp/src/ui packages/webapp/src/view`
