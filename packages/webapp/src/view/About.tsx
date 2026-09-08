@@ -1,11 +1,12 @@
 import { BackToVoto } from "#webapp/components/BackToVoto.tsx";
 import { Footer } from "#webapp/components/Footer.tsx";
+import { LocalizedLink as Link } from "#webapp/components/LocalizedLink.tsx";
 
 export const About = () => (
   <div className="flex min-h-screen flex-col">
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-7 lg:py-16">
       <BackToVoto />
-      <p className="mt-8 font-bold text-blue-700 text-sm tracking-wider">ABOUT US</p>
+      <p className="mt-8 font-bold text-blue-700 tracking-wider">ABOUT US</p>
       <article className="typography mt-2">
         <h1>Better decisions, made together.</h1>
         <p>
@@ -19,7 +20,8 @@ export const About = () => (
         <hr />
         <h2>Our purpose</h2>
         <p>
-          We make participation easier for groups of every size, from a local association to a national institution. Learn more about <a href="/terms">how we use the service</a>.
+          We make participation easier for groups of every size, from a local association to a national institution. Learn more about{" "}
+          <Link to="/terms">how we use the service</Link>.
         </p>
         <h3>What we focus on</h3>
         <p>Our work focuses on three practical outcomes:</p>

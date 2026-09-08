@@ -4,6 +4,9 @@ import {
   type LivePollCreateRequest,
   type Poll,
   type PollCreateRequest,
+  type PollPageRequest,
+  type PollPageResponse,
+  PollPageResponseSchema,
   type PollResults,
   PollResultsSchema,
   type PollRow,
@@ -103,6 +106,19 @@ export default class PollService {
     if (!poll) throw new HTTPException(404, { message: POLL_NOT_FOUND_ERROR });
     const options = await PollOptionRepository.getem({ poll_id: pollId }, true);
     const result = PollSchema.parse({ ...poll, options });
+    return result;
+  }
+
+  static async page(params: PollPageRequest): Promise<PollPageResponse> {
+    const { rows, total } = await PollRepository.page(params);
+    const options = await PollOptionRepository.forPolls({ pollIds: rows.map((poll) => poll.id) });
+    const optionsByPollId = Map.groupBy(options, ({ poll_id }) => poll_id);
+    const nextOffset = params.offset + rows.length;
+    const result = PollPageResponseSchema.parse({
+      polls: rows.map((poll) => ({ ...poll, options: optionsByPollId.get(poll.id) ?? [] })),
+      total,
+      nextOffset: rows.length > 0 && nextOffset < total ? nextOffset : null,
+    });
     return result;
   }
 

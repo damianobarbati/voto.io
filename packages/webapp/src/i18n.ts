@@ -1,5 +1,6 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import { languageFromPath, languageStorageKey, preferredLanguage } from "#webapp/language.ts";
 
 const ui = {
   plans: "Plans",
@@ -163,6 +164,15 @@ const localizedUi = {
 const resources = {
   en: {
     translation: {
+      pollList: {
+        sortLabel: "Sort polls",
+        turnoutDescending: "sort by: Turnout: high to low",
+        turnoutAscending: "sort by: Turnout: low to high",
+        votesDescending: "sort by: Votes: high to low",
+        votesAscending: "sort by: Votes: low to high",
+        closingSoonest: "sort by: Closing time: soonest",
+        closingLatest: "sort by: Closing time: latest",
+      },
       ui,
       nav: {
         explore: "Explore",
@@ -346,6 +356,15 @@ const resources = {
   },
   it: {
     translation: {
+      pollList: {
+        sortLabel: "Ordina sondaggi",
+        turnoutDescending: "ordina per: Partecipazione: decrescente",
+        turnoutAscending: "ordina per: Partecipazione: crescente",
+        votesDescending: "ordina per: Voti: decrescente",
+        votesAscending: "ordina per: Voti: crescente",
+        closingSoonest: "ordina per: Chiusura: più vicina",
+        closingLatest: "ordina per: Chiusura: più lontana",
+      },
       ui: { ...ui, ...localizedUi.it },
       nav: {
         explore: "Esplora",
@@ -529,6 +548,15 @@ const resources = {
   },
   es: {
     translation: {
+      pollList: {
+        sortLabel: "Ordenar encuestas",
+        turnoutDescending: "ordenar por: Participación: de mayor a menor",
+        turnoutAscending: "ordenar por: Participación: de menor a mayor",
+        votesDescending: "ordenar por: Votos: de mayor a menor",
+        votesAscending: "ordenar por: Votos: de menor a mayor",
+        closingSoonest: "ordenar por: Cierre: más próximo",
+        closingLatest: "ordenar por: Cierre: más lejano",
+      },
       ui: { ...ui, ...localizedUi.es },
       nav: {
         explore: "Explorar",
@@ -564,6 +592,15 @@ const resources = {
   },
   de: {
     translation: {
+      pollList: {
+        sortLabel: "Umfragen sortieren",
+        turnoutDescending: "sortieren nach: Beteiligung: absteigend",
+        turnoutAscending: "sortieren nach: Beteiligung: aufsteigend",
+        votesDescending: "sortieren nach: Stimmen: absteigend",
+        votesAscending: "sortieren nach: Stimmen: aufsteigend",
+        closingSoonest: "sortieren nach: Ende: frühestes zuerst",
+        closingLatest: "sortieren nach: Ende: spätestes zuerst",
+      },
       ui: { ...ui, ...localizedUi.de },
       nav: {
         explore: "Entdecken",
@@ -599,6 +636,15 @@ const resources = {
   },
   fr: {
     translation: {
+      pollList: {
+        sortLabel: "Trier les sondages",
+        turnoutDescending: "trier par : Participation : décroissante",
+        turnoutAscending: "trier par : Participation : croissante",
+        votesDescending: "trier par : Votes : décroissants",
+        votesAscending: "trier par : Votes : croissants",
+        closingSoonest: "trier par : Clôture : la plus proche",
+        closingLatest: "trier par : Clôture : la plus lointaine",
+      },
       ui: { ...ui, ...localizedUi.fr },
       nav: {
         explore: "Explorer",
@@ -634,11 +680,7 @@ const resources = {
   },
 };
 
-const supportedLanguages = ["en", "es", "de", "fr", "it"];
-const languageStorageKey = "voto.language";
-const savedLanguage = typeof localStorage === "undefined" ? null : localStorage.getItem(languageStorageKey);
-const browserLanguage = typeof navigator === "undefined" ? "en" : navigator.language.toLowerCase().slice(0, 2);
-const language = supportedLanguages.includes(savedLanguage ?? "") ? (savedLanguage ?? "en") : supportedLanguages.includes(browserLanguage) ? browserLanguage : "en";
+const language = languageFromPath({ pathname: window.location.pathname }) ?? preferredLanguage();
 
 void i18n.use(initReactI18next).init({
   resources,
@@ -648,8 +690,11 @@ void i18n.use(initReactI18next).init({
 });
 
 i18n.on("languageChanged", (selectedLanguage) => {
-  if (typeof localStorage !== "undefined") localStorage.setItem(languageStorageKey, selectedLanguage);
+  localStorage.setItem(languageStorageKey, selectedLanguage);
+  document.documentElement.lang = selectedLanguage;
 });
+
+document.documentElement.lang = language;
 
 const formatUsd = ({ amount, locale = i18n.resolvedLanguage ?? i18n.language }: { amount: number; locale?: string }) =>
   new Intl.NumberFormat(locale, { currency: "USD", style: "currency" }).format(amount);

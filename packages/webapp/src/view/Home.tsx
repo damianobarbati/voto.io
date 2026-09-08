@@ -1,6 +1,7 @@
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import cx from "clsx-tw";
 import React from "react";
 import { useForm } from "react-hook-form";
@@ -26,11 +27,12 @@ import {
   FiUsers,
   FiX,
 } from "react-icons/fi";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate as useRouterNavigate } from "react-router-dom";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import useSWR, { mutate } from "swr";
+import useSWRInfinite from "swr/infinite";
 import useSWRMutation from "swr/mutation";
-import { type Poll as ApiPoll, type PollCreateRequest, PollSchema } from "types/Poll.ts";
+import { type Poll as ApiPoll, type PollCreateRequest, type PollPageResponse, PollPageResponseSchema, PollSchema } from "types/Poll.ts";
 import {
   type User,
   type UserLoginRequest,
@@ -42,9 +44,12 @@ import {
   UserSchema,
 } from "types/User.ts";
 import { Footer } from "#webapp/components/Footer.tsx";
+import { LocalizedLink as Link } from "#webapp/components/LocalizedLink.tsx";
 import { type PlanName, PurchasePlans, profilePlans } from "#webapp/components/PurchasePlans.tsx";
 import { apiUrl } from "#webapp/env.ts";
-import { formatDate, formatUsd, i18n, languageStorageKey } from "#webapp/i18n.ts";
+import { useLocalizedNavigate as useNavigate } from "#webapp/hooks/useLocalizedNavigate.ts";
+import { formatDate, formatUsd, i18n } from "#webapp/i18n.ts";
+import { localizedPath, pathWithoutLanguage } from "#webapp/language.ts";
 import { jwtStorageKey, store } from "#webapp/store.ts";
 import { Spinner } from "#webapp/ui/Spinner.tsx";
 
@@ -134,7 +139,6 @@ const registrationStorageKey = "voto.registered";
 const groupFor = (groupId: string | undefined) => groups.find((group) => group.id === groupId);
 const memberCanAccess = (poll: Poll) => !poll.groupId || groupFor(poll.groupId)?.activeMember === true;
 const pollTurnout = (poll: Poll) => (poll.eligible === 0 ? 0 : (poll.votes / poll.eligible) * 100);
-const pollClosingDays = (poll: Poll) => new Date(poll.closesAt).getTime();
 const pollVotingMethod = (type: ApiPoll["type"]): VotingMethod => {
   if (type === "single_choice") return "One choice";
   if (type === "multiple_choice") return "Multiple choice";
@@ -162,6 +166,12 @@ const getPolls = async (): Promise<Poll[]> => {
   const result = PollSchema.array().parse(body).map(toPoll);
   return result;
 };
+const getPollPage = async (url: string): Promise<PollPageResponse> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Unable to retrieve polls");
+  const result = PollPageResponseSchema.parse(await response.json());
+  return result;
+};
 const usePolls = () => useSWR(`${apiUrl}/polls`, getPolls);
 const getUser = async ({ token }: { token: string }) => {
   const response = await fetch(`${apiUrl}/me`, { headers: { Authorization: `Bearer ${token}` } });
@@ -173,7 +183,7 @@ const getUser = async ({ token }: { token: string }) => {
 type FieldProps = { label: string; name?: string; placeholder?: string; required?: boolean; textarea?: boolean; type?: string };
 
 const Field = ({ label, name, placeholder, required = false, textarea = false, type = "text" }: FieldProps) => (
-  <label className="block font-semibold text-sm">
+  <label className="block font-semibold">
     {label}
     {textarea ? (
       <textarea className="mt-1.5 min-h-28 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" name={name} placeholder={placeholder} required={required} />
@@ -185,7 +195,7 @@ const Field = ({ label, name, placeholder, required = false, textarea = false, t
 type SelectFieldProps = { className?: string; label: string; name?: string; onChange?: React.ChangeEventHandler<HTMLSelectElement>; options: string[]; value?: string };
 
 const SelectField = ({ className = "", label, name, onChange, options, value }: SelectFieldProps) => (
-  <label className={cx("block font-semibold text-sm", className)}>
+  <label className={cx("block font-semibold", className)}>
     {label}
     <select className={`mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal ${className}`} name={name} onChange={onChange} value={value}>
       {options.map((option) => (
@@ -200,16 +210,16 @@ type HeaderProps = { user: User | null };
 const Header = ({ user }: HeaderProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [language, setLanguage] = React.useState(i18n.resolvedLanguage ?? i18n.language);
+  const language = i18n.resolvedLanguage ?? i18n.language;
+  const location = useLocation();
+  const navigateLanguage = useRouterNavigate();
   const [isCreateMenuOpen, setIsCreateMenuOpen] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
   const isLoggedIn = user !== null;
   const changeLanguage: React.ChangeEventHandler<HTMLSelectElement> = async (event) => {
     const selectedLanguage = event.target.value;
-    await i18n.changeLanguage(selectedLanguage);
-    localStorage.setItem(languageStorageKey, selectedLanguage);
-    setLanguage(selectedLanguage);
+    await navigateLanguage(`${localizedPath({ path: location.pathname, language: selectedLanguage })}${location.search}${location.hash}`);
   };
   const logout = () => {
     store.persist.clearStorage();
@@ -222,10 +232,10 @@ const Header = ({ user }: HeaderProps) => {
     <header className="border-slate-800 border-b bg-slate-950 px-4 py-3 shadow-lg sm:px-7">
       <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-4">
         <div className="flex items-center gap-6">
-          <Link className="font-bold text-white text-xl tracking-tight no-underline" to="/">
+          <Link className="font-bold text-white tracking-tight no-underline" to="/">
             voto<span className="text-blue-500">.</span>io
           </Link>
-          <nav aria-label="Primary navigation" className="hidden items-center gap-5 text-sm md:flex">
+          <nav aria-label="Primary navigation" className="hidden items-center gap-5 md:flex">
             <Link className="text-slate-300 no-underline hover:text-white" to="/poll/list">
               Explore
             </Link>
@@ -245,7 +255,7 @@ const Header = ({ user }: HeaderProps) => {
             )}
           </nav>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2">
           <div className="relative">
             <button
               aria-expanded={isCreateMenuOpen}
@@ -289,7 +299,7 @@ const Header = ({ user }: HeaderProps) => {
             ))}
           </select>
           {isLoggedIn ? (
-            <div className="relative hidden sm:block">
+            <div className="relative hidden sm:block" onMouseLeave={() => setIsProfileMenuOpen(false)}>
               <button
                 aria-expanded={isProfileMenuOpen}
                 className="rounded-app border border-slate-600 px-3 py-2 font-bold text-white hover:border-white"
@@ -299,25 +309,27 @@ const Header = ({ user }: HeaderProps) => {
                 {user.name}
               </button>
               {isProfileMenuOpen && (
-                <div className="absolute top-full right-0 z-20 mt-2 w-44 rounded-app border border-slate-200 bg-white p-2 shadow-lg">
-                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-polls">
-                    {t("nav.polls")}
-                  </Link>
-                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-groups">
-                    {t("nav.groups")}
-                  </Link>
-                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-subscription">
-                    {t("nav.subscription")}
-                  </Link>
-                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-profile">
-                    {t("nav.profile")}
-                  </Link>
-                  <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-settings">
-                    {t("nav.settings")}
-                  </Link>
-                  <button className="w-full rounded-app px-3 py-2 text-left font-semibold text-red-700 hover:bg-red-50" onClick={logout} type="button">
-                    {t("nav.logout")}
-                  </button>
+                <div className="absolute top-full right-0 z-20 w-44 pt-2">
+                  <div className="rounded-app border border-slate-200 bg-white p-2 shadow-lg">
+                    <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-polls">
+                      {t("nav.polls")}
+                    </Link>
+                    <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-groups">
+                      {t("nav.groups")}
+                    </Link>
+                    <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-subscription">
+                      {t("nav.subscription")}
+                    </Link>
+                    <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-profile">
+                      {t("nav.profile")}
+                    </Link>
+                    <Link className="block rounded-app px-3 py-2 font-semibold text-slate-800 no-underline hover:bg-slate-100" to="/my-settings">
+                      {t("nav.settings")}
+                    </Link>
+                    <button className="w-full rounded-app px-3 py-2 text-left font-semibold text-red-700 hover:bg-red-50" onClick={logout} type="button">
+                      {t("nav.logout")}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -397,7 +409,7 @@ const Header = ({ user }: HeaderProps) => {
   );
 };
 const LockBadge = ({ group }: { group: Group }) => (
-  <span className="inline-flex items-center gap-1 rounded-app bg-blue-50 px-2.5 py-1 font-bold text-blue-800 text-xs">
+  <span className="inline-flex items-center gap-1 rounded-app bg-blue-50 px-2.5 py-1 font-bold text-blue-800">
     <FiLock /> Exclusive to {group.name}
   </span>
 );
@@ -410,7 +422,7 @@ const VotingMethodIcon = ({ votingMethod }: { votingMethod: VotingMethod }) => {
         {votingMethod === "Multiple choice" && <FiCheckSquare aria-hidden="true" />}
         {votingMethod === "Ranked choice" && <FiList aria-hidden="true" />}
       </summary>
-      <span className="absolute top-full right-0 z-10 mt-1 hidden w-max max-w-40 rounded-app bg-slate-950 px-2 py-1 text-center font-semibold text-white text-xs shadow-lg group-open:block md:group-hover:block md:group-open:hidden">
+      <span className="absolute top-full right-0 z-10 mt-1 hidden w-max max-w-40 rounded-app bg-slate-950 px-2 py-1 text-center font-semibold text-white shadow-lg group-open:block md:group-hover:block md:group-open:hidden">
         {label}
       </span>
     </details>
@@ -430,22 +442,22 @@ const PollCard = ({ poll }: { poll: Poll }) => {
         </div>
       )}
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-bold text-lg">{poll.title}</h3>
+        <h3 className="font-bold">{poll.title}</h3>
         <VotingMethodIcon votingMethod={poll.votingMethod} />
       </div>
-      <p className="mt-2 text-slate-500 text-xs">
+      <p className="mt-2 text-slate-500">
         {t("ui.publishedBy")}{" "}
         <Link className="font-bold text-blue-700 no-underline" to="/u/1">
           {poll.authorName}
         </Link>
       </p>
-      <div className="mt-5 flex justify-between border-slate-100 border-t pt-4 text-slate-500 text-xs">
+      <div className="mt-5 flex justify-between border-slate-100 border-t pt-4 text-slate-500">
         <span>
           {poll.votes.toLocaleString(locale)} {t("common.votes")} · {turnout}% {t("landing.turnout")}
         </span>
         <span>{t("ui.closes", { date: closeDate })}</span>
       </div>
-      <Link className="mt-4 flex items-center justify-between font-bold text-blue-700 text-sm no-underline" to={`/poll/${poll.id}`}>
+      <Link className="mt-4 flex items-center justify-between font-bold text-blue-700 no-underline" to={`/poll/${poll.id}`}>
         {t("common.openPoll")} <FiArrowRight />
       </Link>
     </article>
@@ -456,9 +468,9 @@ type EmptyTabProps = { action: string; actionTo: string; message: string };
 
 const EmptyTab = ({ action, actionTo, message }: EmptyTabProps) => (
   <div className="col-span-full rounded-app border border-slate-200 border-dashed bg-slate-50 px-5 py-10 text-center">
-    <FiUsers className="mx-auto text-2xl text-slate-400" />
+    <FiUsers className="mx-auto size-6 text-slate-400" />
     <p className="mt-3 font-semibold text-slate-700">{message}</p>
-    <Link className="mt-4 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to={actionTo}>
+    <Link className="mt-4 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-white no-underline" to={actionTo}>
       {action}
     </Link>
   </div>
@@ -471,8 +483,8 @@ const Landing = () => {
       <section className="bg-app-text px-6 py-12 text-white sm:px-7 sm:py-20">
         <div className="mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-2">
           <div>
-            <p className="font-bold text-blue-200 text-sm tracking-wider">{t("landing.eyebrow")}</p>
-            <h1 className="mt-3 max-w-3xl font-bold text-5xl text-white tracking-tight lg:text-7xl">{t("landing.title")}</h1>
+            <p className="font-bold text-blue-200 tracking-wider">{t("landing.eyebrow")}</p>
+            <h1 className="mt-3 max-w-3xl font-bold text-white tracking-tight">{t("landing.title")}</h1>
             <p className="mt-5 max-w-xl text-slate-300">Create trusted public, private, and live polls. Set eligibility rules, collect votes, and share clear results.</p>
             <div className="mt-8 flex gap-3">
               <Link className="rounded-app bg-blue-500 px-5 py-3 font-bold text-white no-underline hover:bg-blue-400" to="/register">
@@ -482,14 +494,14 @@ const Landing = () => {
                 {t("landing.plans")}
               </Link>
             </div>
-            <p className="mt-4 text-slate-400 text-sm">Start free. Upgrade when your decisions need more reach.</p>
+            <p className="mt-4 text-slate-400">Start free. Upgrade when your decisions need more reach.</p>
           </div>
           <div className="rounded-app border border-blue-400/40 bg-slate-900 p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <p className="font-bold text-blue-200 text-sm tracking-wider">LIVE DECISION</p>
-              <span className="rounded-app bg-blue-500 px-2.5 py-1 font-bold text-xs">OPEN</span>
+              <p className="font-bold text-blue-200 tracking-wider">LIVE DECISION</p>
+              <span className="rounded-app bg-blue-500 px-2.5 py-1 font-bold">OPEN</span>
             </div>
-            <h2 className="mt-5 font-bold text-2xl text-white">Which project should receive the next budget?</h2>
+            <h2 className="mt-5 font-bold text-white">Which project should receive the next budget?</h2>
             <div className="mt-6 space-y-3">
               {["Plant 1,000 new trees", "Create community gardens", "Build a small urban forest"].map((option, index) => (
                 <div className="rounded-app border border-slate-700 bg-slate-800 px-4 py-3" key={option}>
@@ -500,7 +512,7 @@ const Landing = () => {
                 </div>
               ))}
             </div>
-            <p className="mt-5 text-slate-400 text-sm">1,248 verified votes · 72% turnout</p>
+            <p className="mt-5 text-slate-400">1,248 verified votes · 72% turnout</p>
           </div>
         </div>
       </section>
@@ -514,39 +526,39 @@ const Landing = () => {
           ].map(([title, description]) => (
             <div className="rounded-app border border-slate-200 bg-white p-4" key={title}>
               <p className="font-bold text-slate-900">{title}</p>
-              <p className="mt-1 text-slate-600 text-sm">{description}</p>
+              <p className="mt-1 text-slate-600">{description}</p>
             </div>
           ))}
         </div>
       </section>
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
         <div className="max-w-2xl">
-          <p className="font-bold text-blue-700 text-sm tracking-wider">BUILT FOR PARTICIPATION</p>
-          <h2 className="mt-2 font-bold text-3xl lg:text-4xl">One place for every kind of decision.</h2>
+          <p className="font-bold text-blue-700 tracking-wider">BUILT FOR PARTICIPATION</p>
+          <h2 className="mt-2 font-bold">One place for every kind of decision.</h2>
           <p className="mt-3 text-slate-600">Choose the right voting format, reach the right people, and turn participation into a result that everyone can understand.</p>
         </div>
         <div className="mt-7 grid gap-4 md:grid-cols-3">
           <article className="rounded-app border border-slate-200 bg-white p-5 shadow-sm">
-            <FiUsers className="text-2xl text-blue-700" />
-            <h3 className="mt-4 font-bold text-xl">Public decisions</h3>
-            <p className="mt-2 text-slate-600 text-sm">Publish a question, invite your community, and keep every response easy to follow.</p>
+            <FiUsers className="size-6 text-blue-700" />
+            <h3 className="mt-4 font-bold">Public decisions</h3>
+            <p className="mt-2 text-slate-600">Publish a question, invite your community, and keep every response easy to follow.</p>
           </article>
           <article className="rounded-app border border-slate-200 bg-white p-5 shadow-sm">
-            <FiLock className="text-2xl text-blue-700" />
-            <h3 className="mt-4 font-bold text-xl">Private organisation voting</h3>
-            <p className="mt-2 text-slate-600 text-sm">Limit participation to verified group members and apply the eligibility rules your decision needs.</p>
+            <FiLock className="size-6 text-blue-700" />
+            <h3 className="mt-4 font-bold">Private organisation voting</h3>
+            <p className="mt-2 text-slate-600">Limit participation to verified group members and apply the eligibility rules your decision needs.</p>
           </article>
           <article className="rounded-app border border-slate-200 bg-white p-5 shadow-sm">
-            <FiSmartphone className="text-2xl text-blue-700" />
-            <h3 className="mt-4 font-bold text-xl">Live voting</h3>
-            <p className="mt-2 text-slate-600 text-sm">Bring a room to a decision with quick, phone-first polls and visible turnout.</p>
+            <FiSmartphone className="size-6 text-blue-700" />
+            <h3 className="mt-4 font-bold">Live voting</h3>
+            <p className="mt-2 text-slate-600">Bring a room to a decision with quick, phone-first polls and visible turnout.</p>
           </article>
         </div>
       </section>
       <section className="bg-slate-100 px-4 py-12 sm:px-7">
         <div className="mx-auto max-w-6xl">
-          <p className="font-bold text-blue-700 text-sm tracking-wider">HOW IT WORKS</p>
-          <h2 className="mt-2 font-bold text-3xl lg:text-4xl">From question to decision in three steps.</h2>
+          <p className="font-bold text-blue-700 tracking-wider">HOW IT WORKS</p>
+          <h2 className="mt-2 font-bold">From question to decision in three steps.</h2>
           <div className="mt-7 grid gap-4 md:grid-cols-3">
             {[
               ["01", "Create", "Set the question, choices, and voting method."],
@@ -554,9 +566,9 @@ const Landing = () => {
               ["03", "Act on the result", "Follow turnout and share a clear final outcome."],
             ].map(([number, title, description]) => (
               <div className="rounded-app bg-white p-5" key={number}>
-                <p className="font-bold text-blue-700 text-sm">{number}</p>
-                <h3 className="mt-3 font-bold text-xl">{title}</h3>
-                <p className="mt-2 text-slate-600 text-sm">{description}</p>
+                <p className="font-bold text-blue-700">{number}</p>
+                <h3 className="mt-3 font-bold">{title}</h3>
+                <p className="mt-2 text-slate-600">{description}</p>
               </div>
             ))}
           </div>
@@ -564,34 +576,34 @@ const Landing = () => {
       </section>
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
         <div className="rounded-app bg-slate-950 p-6 text-white sm:p-10">
-          <p className="font-bold text-blue-200 text-sm tracking-wider">DECISIONS PEOPLE CAN TRUST</p>
+          <p className="font-bold text-blue-200 tracking-wider">DECISIONS PEOPLE CAN TRUST</p>
           <div className="mt-5 grid gap-5 md:grid-cols-3">
             <div>
-              <FiCheck className="text-blue-300 text-xl" />
-              <h3 className="mt-3 font-bold text-lg text-white">Eligibility rules</h3>
-              <p className="mt-1 text-slate-300 text-sm">Target voters by group, location, and profile criteria.</p>
+              <FiCheck className="size-5 text-blue-300" />
+              <h3 className="mt-3 font-bold text-white">Eligibility rules</h3>
+              <p className="mt-1 text-slate-300">Target voters by group, location, and profile criteria.</p>
             </div>
             <div>
-              <FiCheck className="text-blue-300 text-xl" />
-              <h3 className="mt-3 font-bold text-lg text-white">Protected participation</h3>
-              <p className="mt-1 text-slate-300 text-sm">Keep high-value decisions within the right community.</p>
+              <FiCheck className="size-5 text-blue-300" />
+              <h3 className="mt-3 font-bold text-white">Protected participation</h3>
+              <p className="mt-1 text-slate-300">Keep high-value decisions within the right community.</p>
             </div>
             <div>
-              <FiBarChart2 className="text-blue-300 text-xl" />
-              <h3 className="mt-3 font-bold text-lg text-white">Clear reporting</h3>
-              <p className="mt-1 text-slate-300 text-sm">See turnout, votes, and outcomes without extra work.</p>
+              <FiBarChart2 className="size-5 text-blue-300" />
+              <h3 className="mt-3 font-bold text-white">Clear reporting</h3>
+              <p className="mt-1 text-slate-300">See turnout, votes, and outcomes without extra work.</p>
             </div>
           </div>
         </div>
       </section>
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
-        <h2 className="font-bold text-3xl lg:text-4xl">{t("landing.whyTitle")}</h2>
+        <h2 className="font-bold">{t("landing.whyTitle")}</h2>
         <p className="mt-4 max-w-4xl text-slate-600 leading-7">{t("landing.whyDescription")}</p>
       </section>
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
         <div className="flex items-end justify-between">
-          <h2 className="mt-1 font-bold text-3xl lg:text-4xl">{t("landing.polls")}</h2>
-          <Link className="font-bold text-blue-700 text-sm" to="/poll/list">
+          <h2 className="mt-1 font-bold">{t("landing.polls")}</h2>
+          <Link className="font-bold text-blue-700" to="/poll/list">
             {t("landing.allPolls")}
           </Link>
         </div>
@@ -608,8 +620,8 @@ const Landing = () => {
       </main>
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-7">
         <div className="max-w-2xl">
-          <p className="font-bold text-blue-700 text-sm tracking-wider">{t("ui.plans")}</p>
-          <h2 className="mt-1 font-bold text-3xl lg:text-4xl">{t("ui.pricingTitle")}</h2>
+          <p className="font-bold text-blue-700 tracking-wider">{t("ui.plans")}</p>
+          <h2 className="mt-1 font-bold">{t("ui.pricingTitle")}</h2>
           <p className="mt-3 text-slate-600">{t("ui.pricingDescription")}</p>
         </div>
         <PurchasePlans className="mt-7" />
@@ -619,56 +631,141 @@ const Landing = () => {
 };
 
 const PollList = () => {
-  const { data: polls = [], isLoading } = usePolls();
+  "use no memo";
+  const { t } = useTranslation();
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<PollSort>("Turnout: high to low");
   const [showMyGroups, setShowMyGroups] = React.useState(false);
-  const matchingPolls = polls.filter((poll) => poll.title.toLowerCase().includes(query.toLowerCase()));
-  const filteredPolls = matchingPolls.filter((poll) => (showMyGroups ? poll.groupId && memberCanAccess(poll) : !poll.groupId));
-  const visiblePolls = [...filteredPolls].sort((firstPoll, secondPoll) => {
-    if (sort === "Turnout: low to high") return pollTurnout(firstPoll) - pollTurnout(secondPoll);
-    if (sort === "Turnout: high to low") return pollTurnout(secondPoll) - pollTurnout(firstPoll);
-    if (sort === "Votes: low to high") return firstPoll.votes - secondPoll.votes;
-    if (sort === "Votes: high to low") return secondPoll.votes - firstPoll.votes;
-    if (sort === "Closing time: soonest") return pollClosingDays(firstPoll) - pollClosingDays(secondPoll);
-    return pollClosingDays(secondPoll) - pollClosingDays(firstPoll);
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const [scrollMargin, setScrollMargin] = React.useState(0);
+  const {
+    data,
+    error,
+    isLoading,
+    isValidating,
+    size,
+    setSize,
+    mutate: retry,
+  } = useSWRInfinite(
+    (index, previousPage: PollPageResponse | null) => {
+      if (previousPage && previousPage.nextOffset === null) return null;
+      const params = new URLSearchParams({
+        offset: String(index === 0 || !previousPage ? 0 : previousPage.nextOffset),
+        limit: "20",
+        query,
+        sort,
+        group_ids: showMyGroups
+          ? groups
+              .filter((group) => group.activeMember)
+              .map((group) => group.id)
+              .join(",")
+          : "",
+      });
+      return `${apiUrl}/polls/page?${params}`;
+    },
+    getPollPage,
+    { revalidateFirstPage: false, shouldRetryOnError: false },
+  );
+  const visiblePolls = data ? data.flatMap((page) => page.polls.map(toPoll)) : [];
+  const total = data && data.length > 0 ? data[0].total : 0;
+  const lastPage = data && data.length > 0 ? data[data.length - 1] : null;
+  const hasMore = lastPage !== null && lastPage.nextOffset !== null;
+  const rowCount = Math.ceil(visiblePolls.length / 2);
+  const virtualizer = useWindowVirtualizer({
+    count: rowCount,
+    estimateSize: () => 400,
+    overscan: 2,
+    scrollMargin,
+    getItemKey: (index) => visiblePolls[index * 2].id,
   });
+  const virtualRows = virtualizer.getVirtualItems();
+  const lastRow = virtualRows.at(-1);
+  const lastRowIndex = lastRow ? lastRow.index : -1;
+
+  React.useLayoutEffect(() => {
+    const updateMargin = () => {
+      if (listRef.current) setScrollMargin(listRef.current.getBoundingClientRect().top + window.scrollY);
+    };
+    updateMargin();
+    const observer = new ResizeObserver(updateMargin);
+    observer.observe(document.body);
+    window.addEventListener("resize", updateMargin);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateMargin);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (hasMore && !isValidating && !error && data && data.length === size && lastRowIndex >= rowCount - 2) void setSize(size + 1);
+  }, [hasMore, isValidating, error, data, size, lastRowIndex, rowCount, setSize]);
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Polls open to you</h1>
+        <h1 className="mt-1 font-bold">{total} polls open to you</h1>
         <Link className="hidden items-center gap-2 rounded-app bg-blue-700 px-4 py-3 font-bold text-white no-underline sm:inline-flex" to="/poll/new">
           <FiPlus /> Create poll
         </Link>
       </div>
-      <label className="mt-7 flex items-center gap-2 rounded-app border border-slate-300 bg-white px-3">
-        <FiSearch className="text-slate-400" />
-        <input aria-label="Search polls" className="grow border-0 py-3 outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Search polls" value={query} />
-      </label>
-      <div className="mt-3 flex flex-wrap items-end gap-2">
-        <p className="mr-2 text-slate-500 text-sm">{visiblePolls.length} open polls</p>
+      <div className="mt-7 flex flex-col gap-2 lg:flex-row lg:items-stretch">
+        <label className="flex min-w-0 items-center gap-2 rounded-app border border-slate-300 bg-white px-3 focus-within:ring-2 focus-within:ring-blue-600 lg:flex-1">
+          <FiSearch className="shrink-0 text-slate-400" />
+          <input
+            aria-label="Search polls"
+            className="min-w-0 grow border-0 py-3 outline-none"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search polls"
+            value={query}
+          />
+        </label>
         <button
           aria-pressed={showMyGroups}
-          className={`rounded-app border px-3 py-1.5 text-sm ${showMyGroups ? "border-blue-600 bg-blue-50 font-bold text-blue-800" : "border-slate-300 bg-white"}`}
+          className={`shrink-0 rounded-app border px-3 py-3 ${showMyGroups ? "border-blue-600 bg-blue-50 font-bold text-blue-800" : "border-slate-300 bg-white"}`}
           onClick={() => setShowMyGroups(!showMyGroups)}
           type="button"
         >
           My groups
         </button>
-        <SelectField
-          className="mt-0 w-auto"
-          label="Sort polls"
+        <select
+          aria-label={t("pollList.sortLabel")}
+          className="h-[calc(1lh+1.5rem+2px)] min-w-0 rounded-app border border-slate-300 bg-white px-3 py-3 lg:shrink-0"
           onChange={(event) => setSort(event.target.value as PollSort)}
-          options={["Turnout: high to low", "Turnout: low to high", "Votes: high to low", "Votes: low to high", "Closing time: soonest", "Closing time: latest"]}
           value={sort}
-        />
+        >
+          <option value="Turnout: high to low">{t("pollList.turnoutDescending")}</option>
+          <option value="Turnout: low to high">{t("pollList.turnoutAscending")}</option>
+          <option value="Votes: high to low">{t("pollList.votesDescending")}</option>
+          <option value="Votes: low to high">{t("pollList.votesAscending")}</option>
+          <option value="Closing time: soonest">{t("pollList.closingSoonest")}</option>
+          <option value="Closing time: latest">{t("pollList.closingLatest")}</option>
+        </select>
       </div>
-      <div className="mt-3 grid gap-4 md:grid-cols-2">
-        {isLoading && <Spinner />}
-        {visiblePolls.map((poll) => (
-          <PollCard key={poll.id} poll={poll} />
+      <div className="relative mt-3" ref={listRef} style={{ height: virtualizer.getTotalSize() }}>
+        {virtualRows.map((row) => (
+          <div
+            className="absolute top-0 left-0 grid w-full gap-4 pb-4 md:grid-cols-2"
+            data-index={row.index}
+            key={row.key}
+            ref={virtualizer.measureElement}
+            style={{ transform: `translateY(${row.start - scrollMargin}px)` }}
+          >
+            {visiblePolls.slice(row.index * 2, row.index * 2 + 2).map((poll) => (
+              <PollCard key={poll.id} poll={poll} />
+            ))}
+          </div>
         ))}
       </div>
+      {(isLoading || (hasMore && isValidating)) && <Spinner />}
+      {error && (
+        <div role="alert">
+          <p>Unable to retrieve polls</p>
+          <button className="rounded-app border px-3 py-2" onClick={() => void retry()} type="button">
+            Try again
+          </button>
+        </div>
+      )}
+      {!isLoading && !error && total === 0 && <p className="py-6 text-slate-500">No polls found.</p>}
     </main>
   );
 };
@@ -729,13 +826,13 @@ const CreatePoll = () => {
   };
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500 text-sm" to="/poll/list">
+      <Link className="font-bold text-slate-500" to="/poll/list">
         ← Back to polls
       </Link>
-      <h1 className="mt-5 font-bold text-3xl lg:text-5xl">Create a poll</h1>
+      <h1 className="mt-5 font-bold">Create a poll</h1>
       <form className="mt-7 space-y-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7" onSubmit={submit}>
         <fieldset className="space-y-4">
-          {/*<legend className="font-bold text-lg">Poll details</legend>*/}
+          {/*<legend className="font-bold">Poll details</legend>*/}
           <Field label="Poll name" name="name" placeholder="e.g. Q4 strategic priorities" required />
           <Field label="Description" name="description" placeholder="Essential decision context" required textarea />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -744,7 +841,7 @@ const CreatePoll = () => {
           </div>
         </fieldset>
         <fieldset>
-          {/*<legend className="font-bold text-lg">Voting method</legend>*/}
+          {/*<legend className="font-bold">Voting method</legend>*/}
           <SelectField
             label="Voting method"
             onChange={(event) => setMethod(event.target.value as VotingMethod)}
@@ -762,8 +859,8 @@ const CreatePoll = () => {
           )}
         </fieldset>
         <fieldset>
-          {/*<legend className="font-bold text-lg">Voting options</legend>*/}
-          <label className="block font-semibold text-sm">Options</label>
+          {/*<legend className="font-bold">Voting options</legend>*/}
+          <label className="block font-semibold">Options</label>
           <div className="mt-2 space-y-2">
             {options.map((option, index) => (
               <label className="flex gap-2" key={`option-${index}`}>
@@ -787,19 +884,19 @@ const CreatePoll = () => {
             ))}
           </div>
           {automaticNoChoice && (
-            <div className="mt-2 flex items-center gap-2 rounded-app border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-900 text-sm">
-              <FiCheck /> No suitable option. <span className="ml-auto font-bold text-xs">Automatic</span>
+            <div className="mt-2 flex items-center gap-2 rounded-app border border-blue-200 bg-blue-50 px-3 py-2.5 text-blue-900">
+              <FiCheck /> No suitable option. <span className="ml-auto font-bold">Automatic</span>
             </div>
           )}
           {options.length < 5 && (
-            <button className="mt-3 font-bold text-blue-700 text-sm" onClick={() => setOptions([...options, ""])} type="button">
+            <button className="mt-3 font-bold text-blue-700" onClick={() => setOptions([...options, ""])} type="button">
               + Add option
             </button>
           )}
-          <p className="mt-2 text-slate-500 text-xs">One-choice and multiple-choice polls require at least two options.</p>
+          <p className="mt-2 text-slate-500">One-choice and multiple-choice polls require at least two options.</p>
         </fieldset>
         <fieldset className="space-y-3">
-          {/*<legend className="font-bold text-lg">Access control</legend>*/}
+          {/*<legend className="font-bold">Access control</legend>*/}
           <SelectField
             label="Who can view and vote"
             name="group"
@@ -807,10 +904,10 @@ const CreatePoll = () => {
             options={["Public", ...ownedGroups.map((group) => group.name)]}
             value={groupId === "Public" ? "Public" : groupFor(groupId)?.name}
           />
-          <p className="text-slate-500 text-xs">Private polls require an active group membership and all demographic requirements.</p>
+          <p className="text-slate-500">Private polls require an active group membership and all demographic requirements.</p>
         </fieldset>
         <fieldset>
-          {/*<legend className="font-bold text-lg">Eligible voters</legend>*/}
+          {/*<legend className="font-bold">Eligible voters</legend>*/}
           <div className="grid gap-3 sm:grid-cols-2">
             <SelectField label="Gender" name="gender" options={["Any gender", "Women", "Men"]} />
             <Field label="Minimum income" name="income" type="number" />
@@ -824,11 +921,11 @@ const CreatePoll = () => {
                 value={countryScope}
               />
             ) : (
-              <p className="self-end text-slate-500 text-sm">Country: {user?.country ?? "Not specified"}</p>
+              <p className="self-end text-slate-500">Country: {user?.country ?? "Not specified"}</p>
             )}
           </div>
         </fieldset>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-red-600">{error}</p>}
         <button className="w-full rounded-app bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-600" type="submit">
           Publish poll
         </button>
@@ -840,9 +937,9 @@ const CreatePoll = () => {
 const AccessDenied = ({ group }: { group: Group }) => (
   <main className="mx-auto max-w-xl px-4 py-20 text-center">
     <div className="mx-auto flex size-14 items-center justify-center rounded-app bg-red-50 text-red-700">
-      <FiLock className="text-2xl" />
+      <FiLock className="size-6" />
     </div>
-    <h1 className="mt-5 font-bold text-3xl">Access denied</h1>
+    <h1 className="mt-5 font-bold">Access denied</h1>
     <p className="mt-3 text-slate-600">This poll is restricted to members of {group.name}.</p>
     <Link className="mt-7 inline-block rounded-app bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/my-groups">
       View your groups
@@ -869,7 +966,7 @@ const RankedOption = ({ index, onMove, option, options }: RankedOptionProps) => 
       <button aria-label={`Reorder ${option}`} className="cursor-grab text-slate-400 active:cursor-grabbing" ref={handleRef} type="button">
         <FiMenu />
       </button>
-      <span className="flex size-7 items-center justify-center rounded-app bg-blue-50 font-bold text-blue-700 text-sm">{index + 1}</span>
+      <span className="flex size-7 items-center justify-center rounded-app bg-blue-50 font-bold text-blue-700">{index + 1}</span>
       <span className="grow">{option}</span>
       <button aria-label={`Move ${option} up`} disabled={index === 0} onClick={() => index > 0 && onMove({ source: option, target: options[index - 1] })} type="button">
         <FiArrowUp />
@@ -943,13 +1040,13 @@ const PollDetail = () => {
   };
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500 text-sm" to="/poll/list">
+      <Link className="font-bold text-slate-500" to="/poll/list">
         ← Back to polls
       </Link>
       <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_270px]">
         <section>
           {group && <LockBadge group={group} />}
-          <h1 className="mt-4 font-bold text-3xl lg:text-5xl">{poll.title}</h1>
+          <h1 className="mt-4 font-bold">{poll.title}</h1>
           <p className="mt-3 text-slate-600">{poll.description}</p>
           <div className="mt-6 rounded-app border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2 font-bold">
@@ -1006,17 +1103,17 @@ const PollDetail = () => {
               >
                 Submit vote
               </button>
-              <Link className="rounded-app border border-slate-300 px-5 py-3 font-bold text-slate-800 text-sm no-underline" to={`/poll/${poll.id}/stats`}>
+              <Link className="rounded-app border border-slate-300 px-5 py-3 font-bold text-slate-800 no-underline" to={`/poll/${poll.id}/stats`}>
                 See results
               </Link>
             </div>
-            {isSubmitted && <p className="mt-3 font-semibold text-emerald-700 text-sm">Your vote was submitted.</p>}
-            {submitError && <p className="mt-3 font-semibold text-red-700 text-sm">{submitError}</p>}
+            {isSubmitted && <p className="mt-3 font-semibold text-emerald-700">Your vote was submitted.</p>}
+            {submitError && <p className="mt-3 font-semibold text-red-700">{submitError}</p>}
           </div>
         </section>
         <aside className="rounded-app bg-slate-100 p-5">
-          <h2 className="font-bold text-lg">Poll facts</h2>
-          <dl className="mt-4 space-y-4 text-sm">
+          <h2 className="font-bold">Poll facts</h2>
+          <dl className="mt-4 space-y-4">
             <div>
               <dt className="text-slate-500">Status</dt>
               <dd className="font-bold text-blue-700">Open for voting</dd>
@@ -1044,7 +1141,7 @@ const DemographicChart = ({ data, title }: { data: Range[]; title: string }) => 
   const { t } = useTranslation();
   return (
     <section className="rounded-app border border-slate-200 bg-white p-5">
-      <h2 className="font-bold text-lg">{title}</h2>
+      <h2 className="font-bold">{title}</h2>
       <div className="mt-4 h-72">
         <ResponsiveContainer height="100%" width="100%">
           <BarChart data={data} layout="vertical">
@@ -1064,11 +1161,11 @@ const DemographicChart = ({ data, title }: { data: Range[]; title: string }) => 
 };
 const ChoiceResults = () => (
   <>
-    <h2 className="font-bold text-xl">Choices</h2>
+    <h2 className="font-bold">Choices</h2>
     <div className="mt-5 space-y-4">
       {results.map((result) => (
         <div key={result.label}>
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between">
             <span>{result.label}</span>
             <strong>
               {result.percentage}% · {result.votes}
@@ -1084,10 +1181,10 @@ const ChoiceResults = () => (
 );
 const MultipleChoiceResults = () => (
   <>
-    <h2 className="font-bold text-xl">Choices</h2>
+    <h2 className="font-bold">Choices</h2>
     <div className="mt-5 space-y-3">
       {multipleChoiceResults.map((result) => (
-        <div className="grid gap-1 border-slate-100 border-b pb-3 text-sm sm:grid-cols-[1fr_auto_auto_auto] sm:gap-5" key={result.label}>
+        <div className="grid gap-1 border-slate-100 border-b pb-3 sm:grid-cols-[1fr_auto_auto_auto] sm:gap-5" key={result.label}>
           <strong>{result.label}</strong>
           <span>{result.voterPercentage}% of voters</span>
           <span>{result.selectionPercentage}% of selections</span>
@@ -1101,14 +1198,14 @@ const RankedChoiceResults = ({ algorithm }: { algorithm: RankedAlgorithm }) => {
   if (algorithm === "borda") {
     return (
       <>
-        <h2 className="font-bold text-xl">Final ranking</h2>
+        <h2 className="font-bold">Final ranking</h2>
         <ol className="mt-5 space-y-2">
           {[
             ["Extend route N6", 1371],
             ["Add an airport connection", 1028],
             ["Increase frequency on route N15", 847],
           ].map(([option, points], index) => (
-            <li className="flex justify-between border-slate-100 border-b pb-2 text-sm" key={option}>
+            <li className="flex justify-between border-slate-100 border-b pb-2" key={option}>
               <span>
                 {index + 1}. {option}
               </span>
@@ -1123,16 +1220,16 @@ const RankedChoiceResults = ({ algorithm }: { algorithm: RankedAlgorithm }) => {
     <>
       <div className="rounded-app bg-blue-50 p-4 text-blue-950">
         <p className="font-bold">Winner: Extend route N6</p>
-        <p className="mt-1 text-sm">52.4% after round 3</p>
+        <p className="mt-1">52.4% after round 3</p>
       </div>
-      <h2 className="mt-5 font-bold text-xl">Instant-runoff rounds</h2>
-      <div className="mt-3 space-y-2 text-sm">
+      <h2 className="mt-5 font-bold">Instant-runoff rounds</h2>
+      <div className="mt-3 space-y-2">
         <p>Round 1: Increase frequency on route N15 eliminated.</p>
         <p>Round 2: Add an airport connection eliminated.</p>
         <p>Round 3: Extend route N6 reached a majority.</p>
       </div>
       <h3 className="mt-5 font-bold">Preference distribution by rank</h3>
-      <p className="mt-1 text-slate-600 text-sm">First, second, and third preferences are shown in the demographic charts.</p>
+      <p className="mt-1 text-slate-600">First, second, and third preferences are shown in the demographic charts.</p>
     </>
   );
 };
@@ -1147,13 +1244,13 @@ const ResultsPage = () => {
   if (group && !memberCanAccess(poll)) return <AccessDenied group={group} />;
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500 text-sm" to={`/poll/${poll.id}`}>
+      <Link className="font-bold text-slate-500" to={`/poll/${poll.id}`}>
         ← Back to poll
       </Link>
       <div className="mt-5 flex justify-between gap-3">
         <div>
-          <p className="font-bold text-blue-700 text-sm tracking-wider">RESULTS</p>
-          <h1 className="mt-1 font-bold text-3xl lg:text-5xl">{poll.title}</h1>
+          <p className="font-bold text-blue-700 tracking-wider">RESULTS</p>
+          <h1 className="mt-1 font-bold">{poll.title}</h1>
         </div>
         {group && <LockBadge group={group} />}
       </div>
@@ -1179,11 +1276,11 @@ const ResultsPage = () => {
 };
 const Metric = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
   <div className="rounded-app border border-slate-200 bg-white p-5">
-    <div className="flex items-center gap-2 text-slate-500 text-sm">
+    <div className="flex items-center gap-2 text-slate-500">
       {icon}
       {label}
     </div>
-    <p className="mt-2 font-bold text-2xl">{value}</p>
+    <p className="mt-2 font-bold">{value}</p>
   </div>
 );
 
@@ -1239,7 +1336,7 @@ const cityRows: CityRow[] = [
 ];
 
 const SplitBar = ({ men, women }: SplitBarProps) => (
-  <div className="flex h-7 overflow-hidden rounded-app text-center font-bold text-[10px] text-slate-900">
+  <div className="flex h-7 overflow-hidden rounded-app text-center font-bold text-slate-900">
     <span className="flex items-center justify-center bg-sky-300" style={{ width: `${men}%` }}>
       {men}%
     </span>
@@ -1253,7 +1350,7 @@ const StackedRows = ({ rows }: StackedRowsProps) => (
   <div className="space-y-2">
     {rows.map((row) => (
       <div className="grid grid-cols-[4.5rem_1fr] items-center gap-2" key={row.label}>
-        <span className="font-medium text-slate-600 text-xs">{row.label}</span>
+        <span className="font-medium text-slate-600">{row.label}</span>
         <SplitBar men={row.men} women={row.women} />
       </div>
     ))}
@@ -1264,11 +1361,11 @@ const CityBars = ({ rows }: CityBarsProps) => (
   <div className="space-y-2">
     {rows.map((row) => (
       <div className="grid grid-cols-[4.5rem_1fr_2rem] items-center gap-2" key={row.label}>
-        <span className="truncate font-medium text-slate-600 text-xs">{row.label}</span>
+        <span className="truncate font-medium text-slate-600">{row.label}</span>
         <div className="h-5 overflow-hidden rounded-app bg-slate-100">
           <div className="h-full rounded-app bg-blue-600" style={{ width: `${row.percentage}%` }} />
         </div>
-        <span className="text-right font-bold text-xs">{row.percentage}%</span>
+        <span className="text-right font-bold">{row.percentage}%</span>
       </div>
     ))}
   </div>
@@ -1276,32 +1373,32 @@ const CityBars = ({ rows }: CityBarsProps) => (
 
 const LiveDemographicPanel = () => (
   <details className="mt-4 border-slate-100 border-t pt-4">
-    <summary className="cursor-pointer font-bold text-blue-700 text-sm">Demographic breakdown</summary>
+    <summary className="cursor-pointer font-bold text-blue-700">Demographic breakdown</summary>
     <div className="mt-5 space-y-6">
       <section>
-        <h3 className="font-bold text-sm">Gender</h3>
+        <h3 className="font-bold">Gender</h3>
         <div className="mt-2">
           <SplitBar men={48} women={52} />
         </div>
-        <div className="mt-1 flex justify-between text-slate-500 text-xs">
+        <div className="mt-1 flex justify-between text-slate-500">
           <span>Men</span>
           <span>Women</span>
         </div>
       </section>
       <section>
-        <h3 className="font-bold text-sm">Age</h3>
+        <h3 className="font-bold">Age</h3>
         <div className="mt-2">
           <StackedRows rows={ageRows} />
         </div>
       </section>
       <section>
-        <h3 className="font-bold text-sm">Income</h3>
+        <h3 className="font-bold">Income</h3>
         <div className="mt-2">
           <StackedRows rows={incomeRows} />
         </div>
       </section>
       <section>
-        <h3 className="font-bold text-sm">Geography</h3>
+        <h3 className="font-bold">Geography</h3>
         <div className="mt-2">
           <CityBars rows={cityRows} />
         </div>
@@ -1326,7 +1423,7 @@ const useViewportWidth = () => {
 const LivePollDeviceGate = ({ message }: { message: string }) => (
   <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-5 text-center">
     <FiSmartphone className="size-16 text-blue-700" />
-    <h1 className="mt-5 font-bold text-3xl">Device not supported</h1>
+    <h1 className="mt-5 font-bold">Device not supported</h1>
     <p className="mt-3 text-slate-600">{message}</p>
     <Link className="mt-7 rounded-app bg-blue-700 px-5 py-3 font-bold text-white no-underline" to="/">
       Back to voto.io
@@ -1349,7 +1446,7 @@ const LivePoll = () => {
   const addOption = () => setOptions([...options, ""]);
   const updateOption = ({ index, value }: { index: number; value: string }) => setOptions(options.map((option, optionIndex) => (optionIndex === index ? value : option)));
   const copyVoterLink = async () => {
-    const voterLink = `${window.location.origin}/live-poll/${livePoll?.id ?? id}/vote`;
+    const voterLink = `${window.location.origin}${localizedPath({ path: `/live-poll/${livePoll?.id ?? id}/vote`, language: i18n.resolvedLanguage ?? "en" })}`;
     await navigator.clipboard.writeText(voterLink);
     setIsLinkCopied(true);
   };
@@ -1363,10 +1460,10 @@ const LivePoll = () => {
       )}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-bold text-blue-700 text-sm tracking-wider">LIVE POLL</p>
-          <h1 className="mt-1 font-bold text-3xl lg:text-5xl">City forum</h1>
+          <p className="font-bold text-blue-700 tracking-wider">LIVE POLL</p>
+          <h1 className="mt-1 font-bold">City forum</h1>
         </div>
-        <div className="text-center text-slate-600 text-xs">
+        <div className="text-center text-slate-600">
           <LiveQr />
           <p className="mt-2 font-bold">
             {viewers} / {liveAudienceLimit} live users
@@ -1402,12 +1499,12 @@ const LivePoll = () => {
             setStatus("open");
           }}
         >
-          <label className="block font-semibold text-sm">
+          <label className="block font-semibold">
             Question
             <input className="mt-1.5 w-full rounded-app border border-slate-300 px-3 py-2.5 font-normal" onChange={(event) => setQuestion(event.target.value)} value={question} />
           </label>
           <div>
-            <p className="font-bold text-sm">Options</p>
+            <p className="font-bold">Options</p>
             <div className="mt-2 space-y-2">
               {options.map((option, index) => (
                 <input
@@ -1419,7 +1516,7 @@ const LivePoll = () => {
               ))}
             </div>
             {options.length < 5 && (
-              <button className="mt-3 font-bold text-blue-700 text-sm" onClick={addOption} type="button">
+              <button className="mt-3 font-bold text-blue-700" onClick={addOption} type="button">
                 + Add option
               </button>
             )}
@@ -1431,10 +1528,10 @@ const LivePoll = () => {
       )}
       {status === "open" && (
         <section className="mt-7 max-w-3xl rounded-app border border-slate-200 bg-white p-5 sm:p-7">
-          <span className="rounded-app bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700 text-xs">OPEN</span>
-          <h2 className="mt-4 font-bold text-2xl">{question}</h2>
+          <span className="rounded-app bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700">OPEN</span>
+          <h2 className="mt-4 font-bold">{question}</h2>
           <div className="mt-6">
-            <div className="flex justify-between font-bold text-sm">
+            <div className="flex justify-between font-bold">
               <span>Live participation</span>
               <span>
                 {voters} / {viewers} voted
@@ -1456,8 +1553,8 @@ const LivePoll = () => {
       )}
       {status === "closed" && (
         <section className="mt-7 max-w-3xl rounded-app border border-slate-200 bg-white p-5 sm:p-7">
-          <span className="rounded-app bg-slate-100 px-2.5 py-1 font-bold text-slate-700 text-xs">CLOSED</span>
-          <h2 className="mt-4 font-bold text-2xl">{question}</h2>
+          <span className="rounded-app bg-slate-100 px-2.5 py-1 font-bold text-slate-700">CLOSED</span>
+          <h2 className="mt-4 font-bold">{question}</h2>
           <div className="mt-6 space-y-4">
             {[
               { label: options[0], percentage: 48 },
@@ -1465,7 +1562,7 @@ const LivePoll = () => {
               { label: options[2], percentage: 18 },
             ].map(({ label, percentage }) => (
               <div className="rounded-app border border-slate-100 p-4" key={label}>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between">
                   <span>{label}</span>
                   <strong>{percentage}%</strong>
                 </div>
@@ -1501,8 +1598,8 @@ const LiveVoter = () => {
   if (step === "register") {
     return (
       <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-white px-5 py-8">
-        <FiSmartphone className="text-3xl text-blue-700" />
-        <h1 className="mt-5 font-bold text-3xl">Join Elena Rossi's live poll</h1>
+        <FiSmartphone className="size-7.5 text-blue-700" />
+        <h1 className="mt-5 font-bold">Join Elena Rossi's live poll</h1>
         <p className="mt-2 text-slate-600">Provide details to confirm eligibility.</p>
         <form
           className="mt-6 grid gap-4"
@@ -1535,7 +1632,7 @@ const LiveVoter = () => {
           <circle cx="50" cy="50" fill="none" r="38" stroke="currentColor" strokeWidth="8" />
           <path d="M50 25v27l18 11" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="8" />
         </svg>
-        <h1 className="mt-6 font-bold text-3xl">Waiting for the poll</h1>
+        <h1 className="mt-6 font-bold">Waiting for the poll</h1>
         <p className="mt-2 text-slate-600">The creator will open it soon.</p>
         <button className="mt-6 font-bold text-blue-700" onClick={() => setStep("voting")} type="button">
           Poll is open
@@ -1547,7 +1644,7 @@ const LiveVoter = () => {
     return (
       <main className="mx-auto flex min-h-screen max-w-[480px] flex-col items-center justify-center bg-white px-5 text-center">
         <FiUsers className="size-16 text-amber-600" />
-        <h1 className="mt-5 font-bold text-3xl">Audience limit reached</h1>
+        <h1 className="mt-5 font-bold">Audience limit reached</h1>
         <p className="mt-2 font-semibold text-amber-700">Waiting the creator to increase the poll audience...</p>
       </main>
     );
@@ -1556,14 +1653,14 @@ const LiveVoter = () => {
     return (
       <main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-[480px] flex-col items-center justify-center bg-white px-5 text-center">
         <FiCheck className="size-16 text-emerald-600" />
-        <h1 className="mt-5 font-bold text-3xl">Thank you</h1>
+        <h1 className="mt-5 font-bold">Thank you</h1>
         <p className="mt-2 text-slate-600">Your vote was recorded.</p>
       </main>
     );
   return (
     <main className="mx-auto min-h-[calc(100vh-58px)] max-w-[480px] bg-white px-5 py-8">
-      <p className="font-bold text-blue-700 text-sm tracking-wider">LIVE POLL</p>
-      <h1 className="mt-2 font-bold text-3xl">{livePoll?.name ?? "Loading poll"}</h1>
+      <p className="font-bold text-blue-700 tracking-wider">LIVE POLL</p>
+      <h1 className="mt-2 font-bold">{livePoll?.name ?? "Loading poll"}</h1>
       <div className="mt-7 space-y-3">
         {(livePoll?.options ?? []).map((option) => (
           <label className="flex cursor-pointer items-center gap-3 rounded-app border border-slate-200 p-4 has-checked:border-blue-600 has-checked:bg-blue-50" key={option.id}>
@@ -1599,8 +1696,8 @@ const Groups = () => {
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-bold text-blue-700 text-sm tracking-wider">ORGANISATIONS</p>
-          <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Your groups</h1>
+          <p className="font-bold text-blue-700 tracking-wider">ORGANISATIONS</p>
+          <h1 className="mt-1 font-bold">Your groups</h1>
         </div>
         <Link className="inline-flex items-center gap-2 rounded-app bg-blue-700 px-4 py-3 font-bold text-white no-underline" to="/my-groups/new">
           <FiPlus /> Create group
@@ -1609,14 +1706,14 @@ const Groups = () => {
       <section className="mt-7 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
         <div className="flex border-slate-200 border-b">
           <button
-            className={`px-4 py-2 font-bold text-sm ${groupTab === "joined" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+            className={`px-4 py-2 font-bold ${groupTab === "joined" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
             onClick={() => setGroupTab("joined")}
             type="button"
           >
             Groups you belong to
           </button>
           <button
-            className={`px-4 py-2 font-bold text-sm ${groupTab === "managed" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+            className={`px-4 py-2 font-bold ${groupTab === "managed" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
             onClick={() => setGroupTab("managed")}
             type="button"
           >
@@ -1626,9 +1723,9 @@ const Groups = () => {
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {visibleGroups.map((group) => (
             <article className="rounded-app border border-slate-200 p-5" key={group.id}>
-              <h2 className="font-bold text-lg">{group.name}</h2>
-              <p className="mt-1 text-slate-600 text-sm">{group.description}</p>
-              <p className="mt-4 font-semibold text-sm">
+              <h2 className="font-bold">{group.name}</h2>
+              <p className="mt-1 text-slate-600">{group.description}</p>
+              <p className="mt-4 font-semibold">
                 {group.members} / {group.limit} members
               </p>
             </article>
@@ -1641,8 +1738,8 @@ const Groups = () => {
             ))}
         </div>
         <div className="mt-8 text-center">
-          <p className="text-slate-600 text-sm">Upgrade to create and manage private groups.</p>
-          <Link className="mt-3 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
+          <p className="text-slate-600">Upgrade to create and manage private groups.</p>
+          <Link className="mt-3 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-white no-underline" to="/plans">
             Upgrade plan
           </Link>
         </div>
@@ -1652,21 +1749,21 @@ const Groups = () => {
 };
 const GroupNew = () => (
   <main className="mx-auto max-w-3xl px-4 py-8 sm:px-7">
-    <Link className="font-bold text-slate-500 text-sm" to="/my-groups">
+    <Link className="font-bold text-slate-500" to="/my-groups">
       ← Back to groups
     </Link>
-    <h1 className="mt-5 font-bold text-3xl lg:text-5xl">Create group</h1>
+    <h1 className="mt-5 font-bold">Create group</h1>
     <form className="mt-7 space-y-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
       <Field label="Group name" placeholder="e.g. Northstar Strategy" />
       <Field label="Description" placeholder="Purpose and audience" textarea />
-      <label className="block font-semibold text-sm">
+      <label className="block font-semibold">
         Group image
         <div className="mt-1.5 flex items-center gap-3 rounded-app border border-slate-300 border-dashed px-3 py-5 text-slate-500">
           <FiImage /> Upload image
         </div>
       </label>
       <Field label="Member emails" placeholder="ana@example.com&#10;luca@example.com" textarea />
-      <label className="flex items-center gap-2 font-semibold text-sm">
+      <label className="flex items-center gap-2 font-semibold">
         <input defaultChecked type="checkbox" /> Send invitation email
       </label>
       <button className="w-full rounded-app bg-blue-700 px-5 py-3 font-bold text-white" type="submit">
@@ -1682,21 +1779,21 @@ const GroupDetail = () => {
     status === "Accepted" ? "bg-emerald-50 text-emerald-700" : status === "Rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700";
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <Link className="font-bold text-slate-500 text-sm" to="/my-groups">
+      <Link className="font-bold text-slate-500" to="/my-groups">
         ← Back to groups
       </Link>
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-bold text-blue-700 text-sm tracking-wider">PRIVATE GROUP</p>
-          <h1 className="mt-1 font-bold text-3xl lg:text-5xl">{group.name}</h1>
+          <p className="font-bold text-blue-700 tracking-wider">PRIVATE GROUP</p>
+          <h1 className="mt-1 font-bold">{group.name}</h1>
         </div>
-        <span className="rounded-app bg-blue-50 px-3 py-1.5 font-bold text-blue-800 text-sm">
+        <span className="rounded-app bg-blue-50 px-3 py-1.5 font-bold text-blue-800">
           {group.members} / {group.limit} members
         </span>
       </div>
       <section className="mt-7 grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
         <form className="space-y-4 rounded-app border border-slate-200 bg-white p-5">
-          <h2 className="font-bold text-xl">Group settings</h2>
+          <h2 className="font-bold">Group settings</h2>
           <Field label="Group name" placeholder={group.name} />
           <Field label="Description" placeholder={group.description} textarea />
           <button className="rounded-app bg-blue-700 px-4 py-2.5 font-bold text-white" type="submit">
@@ -1705,16 +1802,16 @@ const GroupDetail = () => {
         </form>
         <section className="rounded-app border border-slate-200 bg-white p-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-xl">Invitations</h2>
-            <button className="rounded-app border border-slate-300 px-3 py-1.5 font-bold text-sm" type="button">
+            <h2 className="font-bold">Invitations</h2>
+            <button className="rounded-app border border-slate-300 px-3 py-1.5 font-bold" type="button">
               Invite members
             </button>
           </div>
           <div className="mt-4 divide-y divide-slate-100">
             {invitations.map((invitation) => (
-              <div className="flex items-center justify-between gap-3 py-3 text-sm" key={invitation.email}>
+              <div className="flex items-center justify-between gap-3 py-3" key={invitation.email}>
                 <span>{invitation.email}</span>
-                <span className={`rounded-app px-2.5 py-1 font-bold text-xs ${statusClass(invitation.status)}`}>{invitation.status}</span>
+                <span className={`rounded-app px-2.5 py-1 font-bold ${statusClass(invitation.status)}`}>{invitation.status}</span>
               </div>
             ))}
           </div>
@@ -1754,24 +1851,24 @@ const Register = () => {
 
   return (
     <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
-      <h1 className="font-bold text-3xl lg:text-5xl">Join voto</h1>
+      <h1 className="font-bold">Join voto</h1>
       <form className="mt-7 grid gap-4 rounded-app border border-slate-200 bg-white p-5 sm:grid-cols-2" onSubmit={form.handleSubmit(registerUser)}>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           First name
           <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("first_name")} />
           {form.formState.errors.first_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.first_name.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Last name
           <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("last_name")} />
           {form.formState.errors.last_name && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.last_name.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Birth date
           <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="date" {...form.register("birth_date")} />
           {form.formState.errors.birth_date && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.birth_date.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Gender
           <select className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("gender")}>
             <option value="">Select gender</option>
@@ -1780,17 +1877,17 @@ const Register = () => {
           </select>
           {form.formState.errors.gender && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.gender.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           City
           <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" {...form.register("city")} />
           {form.formState.errors.city && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.city.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Country
           <input className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" maxLength={2} {...form.register("country")} />
           {form.formState.errors.country && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.country.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Gross annual income
           <input
             className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal"
@@ -1800,12 +1897,12 @@ const Register = () => {
           />
           {form.formState.errors.income && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.income.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Email
           <input autoComplete="email" className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
           {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
         </label>
-        <label className="block font-semibold text-sm sm:col-span-2">
+        <label className="block font-semibold sm:col-span-2">
           Password
           <input
             autoComplete="new-password"
@@ -1816,7 +1913,7 @@ const Register = () => {
           {form.formState.errors.password && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.password.message}</span>}
         </label>
         <input type="hidden" {...form.register("language")} />
-        {error && <p className="text-red-600 text-sm sm:col-span-2">Unable to create account</p>}
+        {error && <p className="text-red-600 sm:col-span-2">Unable to create account</p>}
         <button
           className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:col-span-2"
           disabled={isMutating}
@@ -1824,7 +1921,7 @@ const Register = () => {
         >
           Create account
         </button>
-        <p className="text-center text-slate-600 text-sm sm:col-span-2">
+        <p className="text-center text-slate-600 sm:col-span-2">
           Already registered?{" "}
           <Link className="font-bold text-blue-700" to="/login">
             Log in
@@ -1855,10 +1952,10 @@ const Profile = () => {
   const email = user?.email ?? "elena.rossi@example.com";
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <h1 className="font-bold text-3xl lg:text-5xl">Profile</h1>
+      <h1 className="font-bold">Profile</h1>
       <section className="mt-7 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
-        <h2 className="font-bold text-xl">Your information</h2>
-        <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+        <h2 className="font-bold">Your information</h2>
+        <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-slate-500">First name</dt>
             <dd className="font-bold">{firstName}</dd>
@@ -1889,7 +1986,7 @@ const Profile = () => {
           </div>
         </dl>
       </section>
-      <p className="mt-5 text-slate-600 text-sm">
+      <p className="mt-5 text-slate-600">
         Public creator link:{" "}
         <Link className="font-bold text-blue-700" to="/u/1">
           voto.io/u/1
@@ -1906,20 +2003,20 @@ const Subscription = () => {
   const currentPlan = profilePlans[plan];
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <h1 className="font-bold text-3xl lg:text-5xl">Subscription</h1>
+      <h1 className="font-bold">Subscription</h1>
       <section className="mt-7 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-bold text-xl">Current plan</h2>
-            <p className="mt-1 font-bold text-2xl">{plan}</p>
-            <p className="mt-1 text-slate-500 text-sm">{plan === "Free" ? "Valid forever" : "Valid until 28 September 2026"}</p>
+            <h2 className="font-bold">Current plan</h2>
+            <p className="mt-1 font-bold">{plan}</p>
+            <p className="mt-1 text-slate-500">{plan === "Free" ? "Valid forever" : "Valid until 28 September 2026"}</p>
           </div>
-          <strong className="text-2xl">
+          <strong>
             {formatUsd({ amount: currentPlan.price, locale })}
             {t("ui.perMonth")}
           </strong>
         </div>
-        <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <p className="rounded-app bg-slate-100 p-3">
             {currentPlan.groupLimit === "none"
               ? t("ui.noPrivateGroups")
@@ -1931,14 +2028,14 @@ const Subscription = () => {
             {currentPlan.liveLimit === "unlimited" ? t("ui.unlimitedLiveUsers") : t("ui.liveUsers", { count: new Intl.NumberFormat(locale).format(currentPlan.liveLimit) })}
           </p>
         </div>
-        <Link className="mt-5 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white no-underline" to="/plans">
+        <Link className="mt-5 inline-block rounded-app bg-blue-700 px-4 py-2 font-bold text-white no-underline" to="/plans">
           Change plan
         </Link>
       </section>
       <section className="mt-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
-        <h2 className="font-bold text-xl">Payments</h2>
+        <h2 className="font-bold">Payments</h2>
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-150 text-left text-sm">
+          <table className="w-full min-w-150 text-left">
             <thead className="border-slate-200 border-b text-slate-500">
               <tr>
                 <th className="pr-4 pb-3">Date</th>
@@ -1970,7 +2067,7 @@ const Subscription = () => {
 
 const Plans = () => (
   <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-    <h1 className="font-bold text-3xl lg:text-5xl">Plans</h1>
+    <h1 className="font-bold">Plans</h1>
     <PurchasePlans className="mt-7" />
   </main>
 );
@@ -1980,7 +2077,7 @@ const Checkout = () => {
   const plan = planFromSearch(useLocation().search) ?? "Small";
   return (
     <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
-      <h1 className="font-bold text-3xl lg:text-5xl">Checkout</h1>
+      <h1 className="font-bold">Checkout</h1>
       <form
         className="mt-7 space-y-5 rounded-app border border-slate-200 bg-white p-5 sm:p-7"
         onSubmit={(event) => {
@@ -1988,9 +2085,9 @@ const Checkout = () => {
           navigate(`/my-subscription?plan=${plan.toLowerCase()}`);
         }}
       >
-        <p className="font-bold text-lg">{plan} plan</p>
+        <p className="font-bold">{plan} plan</p>
         <fieldset>
-          <legend className="font-bold text-sm">Payment method</legend>
+          <legend className="font-bold">Payment method</legend>
           <div className="mt-3 space-y-2">
             {["Credit card", "PayPal", "Apple Pay"].map((method) => (
               <label className="flex items-center gap-2" key={method}>
@@ -2035,14 +2132,14 @@ const Login = () => {
 
   return (
     <main className="mx-auto max-w-md px-4 py-8 sm:px-7">
-      <h1 className="font-bold text-3xl lg:text-5xl">Log in</h1>
+      <h1 className="font-bold">Log in</h1>
       <form className="mt-7 space-y-5 rounded-app border border-slate-200 bg-white p-5" onSubmit={form.handleSubmit(login)}>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Email
           <input autoComplete="email" className="mt-1.5 w-full rounded-app border border-slate-300 bg-white px-3 py-2.5 font-normal" type="email" {...form.register("email")} />
           {form.formState.errors.email && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.email.message}</span>}
         </label>
-        <label className="block font-semibold text-sm">
+        <label className="block font-semibold">
           Password
           <input
             autoComplete="current-password"
@@ -2052,7 +2149,7 @@ const Login = () => {
           />
           {form.formState.errors.password && <span className="mt-1 block font-normal text-red-600">{form.formState.errors.password.message}</span>}
         </label>
-        {error && <p className="text-red-600 text-sm">Invalid email or password</p>}
+        {error && <p className="text-red-600">Invalid email or password</p>}
         <button className="rounded-app bg-blue-700 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isMutating} type="submit">
           Log in
         </button>
@@ -2070,17 +2167,17 @@ const MyPolls = () => {
       : polls.filter((poll) => poll.id === "night-buses" || poll.id === "school-meals");
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <h1 className="font-bold text-3xl lg:text-5xl">Your polls</h1>
+      <h1 className="font-bold">Your polls</h1>
       <div className="mt-7 flex border-slate-200 border-b">
         <button
-          className={`px-4 py-2 font-bold text-sm ${pollTab === "created" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          className={`px-4 py-2 font-bold ${pollTab === "created" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
           onClick={() => setPollTab("created")}
           type="button"
         >
           Polls you created
         </button>
         <button
-          className={`px-4 py-2 font-bold text-sm ${pollTab === "voted" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          className={`px-4 py-2 font-bold ${pollTab === "voted" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
           onClick={() => setPollTab("voted")}
           type="button"
         >
@@ -2104,22 +2201,22 @@ const MyPolls = () => {
 
 const Settings = () => (
   <main className="mx-auto max-w-xl px-4 py-8 sm:px-7">
-    <h1 className="font-bold text-3xl lg:text-5xl">Settings</h1>
+    <h1 className="font-bold">Settings</h1>
     <form className="mt-7 space-y-6 rounded-app border border-slate-200 bg-white p-5 sm:p-7">
       <section>
-        <h2 className="font-bold text-xl">Email</h2>
+        <h2 className="font-bold">Email</h2>
         <Field label="Email" placeholder="elena.rossi@example.com" type="email" />
-        <button className="mt-4 rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
+        <button className="mt-4 rounded-app bg-blue-700 px-4 py-2 font-bold text-white" type="submit">
           Change email
         </button>
       </section>
       <section className="border-slate-200 border-t pt-6">
-        <h2 className="font-bold text-xl">Password</h2>
+        <h2 className="font-bold">Password</h2>
         <Field label="Current password" type="password" />
         <div className="mt-4">
           <Field label="New password" type="password" />
         </div>
-        <button className="mt-4 rounded-app bg-blue-700 px-4 py-2 font-bold text-sm text-white" type="submit">
+        <button className="mt-4 rounded-app bg-blue-700 px-4 py-2 font-bold text-white" type="submit">
           Change password
         </button>
       </section>
@@ -2133,18 +2230,18 @@ const Creator = () => {
   const visiblePolls = polls.filter((poll) => (pollTab === "open" ? memberCanAccess(poll) && poll.id !== "partner-review" : poll.id === "school-meals"));
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-7">
-      <p className="font-bold text-blue-700 text-sm tracking-wider">CREATOR</p>
-      <h1 className="mt-1 font-bold text-3xl lg:text-5xl">Elena R.</h1>
+      <p className="font-bold text-blue-700 tracking-wider">CREATOR</p>
+      <h1 className="mt-1 font-bold">Elena R.</h1>
       <div className="mt-7 flex border-slate-200 border-b">
         <button
-          className={`px-4 py-2 font-bold text-sm ${pollTab === "open" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          className={`px-4 py-2 font-bold ${pollTab === "open" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
           onClick={() => setPollTab("open")}
           type="button"
         >
           Open polls
         </button>
         <button
-          className={`px-4 py-2 font-bold text-sm ${pollTab === "closed" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
+          className={`px-4 py-2 font-bold ${pollTab === "closed" ? "border-blue-600 border-b-2 text-blue-700" : "text-slate-500"}`}
           onClick={() => setPollTab("closed")}
           type="button"
         >
@@ -2161,7 +2258,7 @@ const Creator = () => {
 };
 
 export const Home = () => {
-  const path = useLocation().pathname;
+  const path = pathWithoutLanguage({ pathname: useLocation().pathname });
   const [user, setUser] = React.useState(store.getState().user);
   React.useEffect(() => store.subscribe((state) => setUser(state.user)), []);
   const isLivePoll = path.startsWith("/live-poll/");

@@ -3,6 +3,19 @@ import { z } from "zod";
 export const PollListRequestSchema = z.object({}).strict();
 export type PollListRequest = z.output<typeof PollListRequestSchema>;
 
+export const PollPageRequestSchema = z
+  .object({
+    offset: z.coerce.number().int().nonnegative().default(0),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    query: z.string().max(200).default(""),
+    group_ids: z.string().default(""),
+    sort: z
+      .enum(["Turnout: low to high", "Turnout: high to low", "Votes: low to high", "Votes: high to low", "Closing time: soonest", "Closing time: latest"])
+      .default("Turnout: high to low"),
+  })
+  .strict();
+export type PollPageRequest = z.output<typeof PollPageRequestSchema>;
+
 export const PollRowSchema = z
   .object({
     id: z.string(),
@@ -45,6 +58,15 @@ export type PollOptionRow = z.output<typeof PollOptionRowSchema>;
 
 export const PollSchema = PollRowSchema.extend({ options: z.array(PollOptionRowSchema) }).strict();
 export type Poll = z.output<typeof PollSchema>;
+
+export const PollPageResponseSchema = z
+  .object({
+    polls: z.array(PollSchema),
+    total: z.number().int().nonnegative(),
+    nextOffset: z.number().int().nonnegative().nullable(),
+  })
+  .strict();
+export type PollPageResponse = z.output<typeof PollPageResponseSchema>;
 
 export const PollCreateRequestSchema = PollRowSchema.pick({
   name: true,

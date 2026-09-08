@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { LocalizedLink as Link } from "#webapp/components/LocalizedLink.tsx";
 import { formatUsd } from "#webapp/i18n.ts";
 
 export type PlanName = "Free" | "Small" | "Big" | "Unlimited";
@@ -28,16 +28,16 @@ export const PurchasePlans = ({ className = "" }: PurchasePlansProps) => {
         const plan = profilePlans[planName];
         return (
           <article className="flex flex-col rounded-app border border-slate-200 bg-white p-5 shadow-sm" key={planName}>
-            <h3 className="font-bold text-2xl">{planName}</h3>
-            <p className="mt-2 font-bold text-xl">
+            <h3 className="font-bold">{planName}</h3>
+            <p className="mt-2 font-bold">
               {formatUsd({ amount: plan.price, locale })}
               {t("ui.perMonth")}
             </p>
-            <p className="mt-5 text-slate-600 text-sm">{formatLimit(plan.groupLimit, "group")}</p>
-            <p className="mt-2 text-slate-600 text-sm">{formatLimit(plan.liveLimit, "live")}</p>
-            <p className="mt-2 text-slate-600 text-sm">{plan.countryScope}</p>
+            <p className="mt-5 text-slate-600">{formatLimit(plan.groupLimit, "group")}</p>
+            <p className="mt-2 text-slate-600">{formatLimit(plan.liveLimit, "live")}</p>
+            <p className="mt-2 text-slate-600">{plan.countryScope}</p>
             <Link
-              className="mt-6 inline-block rounded-app bg-blue-700 px-4 py-2 text-center font-bold text-sm text-white no-underline hover:bg-blue-600"
+              className="mt-6 inline-block rounded-app bg-blue-700 px-4 py-2 text-center font-bold text-white no-underline hover:bg-blue-600"
               to={`/checkout?plan=${planName.toLowerCase()}`}
             >
               {t("ui.selectPlan")}

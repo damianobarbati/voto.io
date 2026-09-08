@@ -1,7 +1,10 @@
+import { page } from "vitest/browser";
+import "../style.css";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n, languageStorageKey } from "#webapp/i18n.ts";
+import { routes } from "#webapp/routes.ts";
 import { jwtStorageKey, store } from "#webapp/store.ts";
 import { About } from "./About.tsx";
 import { Contact } from "./Contact.tsx";
@@ -95,7 +98,19 @@ describe("Home", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(JSON.stringify(pollsFixture), { status: 200 })),
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(input.toString());
+        if (url.pathname !== "/polls/page") return new Response(JSON.stringify(pollsFixture), { status: 200 });
+        const query = url.searchParams.get("query") ?? "";
+        const groupIds = url.searchParams.get("group_ids");
+        const polls = pollsFixture.filter(
+          (poll) => poll.name.toLowerCase().includes(query.toLowerCase()) && (groupIds ? poll.group_id && groupIds.split(",").includes(poll.group_id) : !poll.group_id),
+        );
+        const sort = url.searchParams.get("sort");
+        if (sort === "Closing time: soonest") polls.sort((a, b) => a.closes_at.localeCompare(b.closes_at));
+        if (sort === "Closing time: latest") polls.sort((a, b) => b.closes_at.localeCompare(a.closes_at));
+        return new Response(JSON.stringify({ polls, total: polls.length, nextOffset: null }), { status: 200 });
+      }),
     );
   });
 
@@ -144,9 +159,9 @@ describe("Home", () => {
 
   it("updates the visible text when the language changes", async () => {
     await i18n.changeLanguage("en");
-    const router = createMemoryRouter([{ path: "/", Component: Home }], { initialEntries: ["/"] });
+    const router = createMemoryRouter(routes, { initialEntries: ["/en"] });
     render(<RouterProvider router={router} />);
-    const selector = screen.getAllByLabelText("Language").at(-1);
+    const selector = (await screen.findAllByLabelText("Language")).at(-1);
     if (!selector) throw new Error("Language selector is missing");
     fireEvent.change(selector, { target: { value: "it" } });
     expect((await screen.findAllByRole("heading", { level: 1, name: "Potere alla tua scelta." })).length).toBeGreaterThan(0);
@@ -225,12 +240,77 @@ describe("Home", () => {
     await screen.findByText("More green space in the city");
     const sorter = screen.getByLabelText("Sort polls");
     fireEvent.change(sorter, { target: { value: "Closing time: soonest" } });
-    const pollCards = container.querySelectorAll("article");
-    expect(pollCards[0].textContent).toContain("More green space in the city");
+    await waitFor(() => expect(container.querySelectorAll("article")[0].textContent).toContain("More green space in the city"));
     fireEvent.change(sorter, { target: { value: "Turnout: low to high" } });
-    expect(container.querySelectorAll("article")[0].textContent).toContain("More green space in the city");
+    await waitFor(() => expect(container.querySelectorAll("article")[0].textContent).toContain("More green space in the city"));
     fireEvent.change(sorter, { target: { value: "Votes: high to low" } });
-    expect(container.querySelectorAll("article")[0].textContent).toContain("More green space in the city");
+    await waitFor(() => expect(container.querySelectorAll("article")[0].textContent).toContain("More green space in the city"));
+  });
+
+  it.each([
+    [1280, 700],
+    [768, 1024],
+    [390, 844],
+  ])("aligns poll controls at %s by %s", async (width, height) => {
+    await page.viewport(width, height);
+    const router = createMemoryRouter([{ path: "/poll/list", Component: Home }], { initialEntries: ["/poll/list"] });
+    render(<RouterProvider router={router} />);
+    try {
+      await screen.findByText("More green space in the city");
+      const search = screen.getByRole("textbox", { name: "Search polls" }).closest("label");
+      if (!search) throw new Error("Search container is missing");
+      const main = screen.getByRole("main");
+      const searchBounds = search.getBoundingClientRect();
+      const filterBounds = within(main).getByRole("button", { name: "My groups" }).getBoundingClientRect();
+      const sortBounds = within(main).getByRole("combobox", { name: "Sort polls" }).getBoundingClientRect();
+      expect(filterBounds.height).toBeCloseTo(searchBounds.height, 0);
+      expect(sortBounds.height).toBeCloseTo(searchBounds.height, 0);
+      if (width >= 1024) {
+        expect(filterBounds.top).toBe(searchBounds.top);
+        expect(sortBounds.top).toBe(searchBounds.top);
+      } else {
+        expect(filterBounds.top).toBeGreaterThan(searchBounds.bottom);
+        expect(sortBounds.top).toBeGreaterThan(filterBounds.bottom);
+      }
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+    } finally {
+      await page.viewport(1366, 700);
+    }
+  });
+
+  it("updates the title count when searching polls", async () => {
+    const router = createMemoryRouter([{ path: "/poll/list", Component: Home }], { initialEntries: ["/poll/list"] });
+    render(<RouterProvider router={router} />);
+    await screen.findByRole("heading", { level: 1, name: "3 polls open to you" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search polls" }), { target: { value: "Night bus" } });
+    expect(await screen.findByRole("heading", { level: 1, name: "1 polls open to you" })).toBeDefined();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search polls" }), { target: { value: "No matching title" } });
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "0 polls open to you" })).toBeDefined());
+  });
+
+  it.each([
+    ["en", "Sort polls", "sort by: "],
+    ["it", "Ordina sondaggi", "ordina per: "],
+    ["es", "Ordenar encuestas", "ordenar por: "],
+    ["de", "Umfragen sortieren", "sortieren nach: "],
+    ["fr", "Trier les sondages", "trier par : "],
+  ])("localizes sorting in %s without changing the selected value", async (language, label, prefix) => {
+    await i18n.changeLanguage("en");
+    const router = createMemoryRouter([{ path: "/poll/list", Component: Home }], { initialEntries: ["/poll/list"] });
+    render(<RouterProvider router={router} />);
+    const sorter = screen.getByRole("combobox", { name: "Sort polls" });
+    fireEvent.change(sorter, { target: { value: "Closing time: latest" } });
+    try {
+      await i18n.changeLanguage(language);
+      const localizedSorter = await screen.findByRole("combobox", { name: label });
+      expect((localizedSorter as HTMLSelectElement).value).toBe("Closing time: latest");
+      const options = within(localizedSorter).getAllByRole("option");
+      expect(options).toHaveLength(6);
+      expect(options.every((option) => (option.textContent ?? "").startsWith(prefix))).toBe(true);
+      if (language !== "en") expect(options.some((option) => /Turnout|Votes:|Closing time/.test(option.textContent ?? ""))).toBe(false);
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("toggles between public and accessible group polls", async () => {
@@ -241,7 +321,7 @@ describe("Home", () => {
     const groupFilter = screen.getAllByRole("button", { name: "My groups" }).at(-1);
     if (!groupFilter) throw new Error("My groups filter is missing");
     fireEvent.click(groupFilter);
-    expect(container.textContent).toContain("Q4 strategic priorities");
+    await waitFor(() => expect(container.textContent).toContain("Q4 strategic priorities"));
     expect(container.textContent).not.toContain("More green space in the city");
   });
 
