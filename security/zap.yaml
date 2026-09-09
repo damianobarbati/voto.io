@@ -1,0 +1,63 @@
+env:
+  contexts:
+    - name: api
+      urls:
+        - "${ZAP_API_URL}"
+      authentication:
+        method: script
+        parameters:
+          script: /zap/wrk/security/zap-auth.js
+          scriptEngine: "ECMAScript : Graal.js"
+          loginUrl: "${ZAP_API_URL}/login"
+      sessionManagement:
+        method: headers
+        parameters:
+          Authorization: "Bearer {%script:votoJwt%}"
+      users:
+        - name: scan-user
+          credentials:
+            email: ${ZAP_EMAIL}
+            password: ${ZAP_PASSWORD}
+    - name: webapp
+      urls:
+        - "${ZAP_WEBAPP_URL}"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    continueOnFailure: false
+jobs:
+  - type: openapi
+    parameters:
+      apiUrl: "${ZAP_API_URL}/openapi.json"
+      targetUrl: "${ZAP_API_URL}"
+      context: api
+      user: scan-user
+  - type: requestor
+    parameters:
+      user: scan-user
+    requests:
+      - name: Live poll SSE route
+        url: "${ZAP_API_URL}/live-polls/${ZAP_POLL_ID}/events"
+        responseCode: 200
+  - type: spider
+    parameters:
+      context: webapp
+      url: "${ZAP_WEBAPP_URL}"
+      maxDuration: 1
+  - type: passiveScan-wait
+    parameters: {}
+  - type: activeScan
+    parameters:
+      context: api
+      user: scan-user
+      url: "${ZAP_API_URL}"
+  - type: passiveScan-wait
+    parameters: {}
+  - type: report
+    parameters:
+      template: sarif-json
+      reportDir: /zap/wrk/zap-reports
+      reportFile: ${ZAP_REPORT_FILE}
+  - type: exitStatus
+    parameters:
+      errorLevel: Medium
