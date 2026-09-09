@@ -13,10 +13,16 @@ async function post(path, body, token) {
   if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`);
   return response.json();
 }
-const lex = await post("/register", user("lex.luthor@gmail.com"));
-const clark = await post("/register", user("clark.kent@gmail.com"));
+const [mode, pollId, optionId] = process.argv.slice(2);
+
+if (mode === "vote") {
+  const clarkToken = await post("/login", { email: "clark.kent@gmail.com", password });
+  await post(`/polls/${pollId}/votes`, { option_ids: [optionId] }, `Bearer ${clarkToken}`);
+  process.exit(0);
+}
+
+await post("/register", user("lex.luthor@gmail.com"));
+await post("/register", user("clark.kent@gmail.com"));
 const lexToken = await post("/login", { email: "lex.luthor@gmail.com", password });
-const clarkToken = await post("/login", { email: "clark.kent@gmail.com", password });
 const poll = await post("/polls", { name: faker.lorem.sentence(), description: faker.lorem.sentence(), opens_at: new Date().toISOString(), closes_at: new Date(Date.now() + 86400000).toISOString(), type: "single_choice", ranked_method: null, gender_restriction: null, age_min: null, age_max: null, gross_income_min: null, gross_income_max: null, cities: [], countries: [], group_id: null, is_live: false, options: [faker.lorem.word(), faker.lorem.word()] }, `Bearer ${lexToken}`);
-await post(`/polls/${poll.id}/votes`, { option_ids: [poll.options[0].id] }, `Bearer ${clarkToken}`);
-console.log(JSON.stringify({ lexToken: `Bearer ${lexToken}`, clarkToken: `Bearer ${clarkToken}`, pollId: poll.id }));
+console.log(JSON.stringify({ pollId: poll.id, optionId: poll.options[0].id }));

@@ -1,0 +1,32 @@
+env:
+  contexts:
+    - name: api
+      urls:
+        - "${ZAP_API_URL}"
+      authentication:
+        method: script
+        parameters:
+          script: /zap/wrk/security/zap-auth.js
+          scriptEngine: "ECMAScript : Graal.js"
+          loginUrl: "${ZAP_API_URL}/login"
+      sessionManagement:
+        method: headers
+        parameters:
+          Authorization: "Bearer {%script:votoJwt%}"
+      users:
+        - name: login-test-user
+          credentials:
+            email: ${ZAP_EMAIL}
+            password: ${ZAP_PASSWORD}
+  parameters:
+    failOnError: true
+    continueOnFailure: false
+
+jobs:
+  - type: requestor
+    parameters:
+      user: login-test-user
+    requests:
+      - name: Authenticated profile
+        url: "${ZAP_API_URL}/me"
+        responseCode: 200
