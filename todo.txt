@@ -1,0 +1,11 @@
+Define governance.
+Define audit trail.
+Define how to validate real humans voting (jumio?).
+Implement tamper evidence and result certification.
+Implement proprietary votation result VotoWeighted: each vote has a weight equal to the voter gross salary.
+Implement proprietary votation result VotoDoubleWeighted: each vote has a weight given by the country life expectancy minus voted age, multiplied by its gross salary.
+Implement notification system by email and web push notifications.
+Implement payment providers to accept credit card, paypal, apple pay.
+--
+Check any error in playwright console, if any fails the specs.
+Implement semgrep testing. Add a github job named named "sast-testing".
