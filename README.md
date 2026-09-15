@@ -27,7 +27,7 @@ pnpm -F api db:seed # seed db
 Run:
 ```sh
 pnpm -F api start:dev
-pnpm -F webapp build:dev
+pnpm -F webapp start:dev
 ```
 
 Test:
@@ -67,6 +67,13 @@ Run load testing:
 ```sh
 pnpm -F api test:load
 ```
+
+Run DAST testing:
+```sh
+ZAP_API_URL=http://host.docker.internal:8080 ZAP_WEBAPP_URL=http://host.docker.internal:3000 ZAP_BOOTSTRAP_API_URL=http://127.0.0.1:8080 bash security/zap-run.sh
+```
+
+Start the API, web app, database, and cache first. The combined report is written to `zap-reports/combined.sarif`.
 
 You can prefix with `DEBUG=http` to log every HTTP request being issued.
 Load testing should run on two dedicated runners with fixed CPU and memory limits/quotas for predictable results.  

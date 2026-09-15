@@ -7,9 +7,9 @@
   },
   "scripts": {
     "test": "vitest run",
-    "build:dev": "rm -rf dist && vite",
+    "start:dev": "rm -rf dist && vite",
     "build": "rm -rf dist && NODE_ENV=production vite build",
-    "serve": "npx --yes --silent --no-progress serve -s dist -p 80 --config ../serve.json"
+    "start": "npx --yes --silent --no-progress serve -s dist -p 80 --config ../serve.json"
   },
   "dependencies": {
     "@dnd-kit/react": "^0.5.0",

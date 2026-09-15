@@ -2,6 +2,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 import { registerRoute } from "nano-fw/docs/index.ts";
+import "nano-fw/zod.ts";
 import {
   LivePollAttendeeRequestSchema,
   LivePollAttendeeSchema,
@@ -102,7 +103,12 @@ registerRoute(router, {
   },
 });
 
-const PollIdRequestSchema = z.object({ id: z.string().min(1) }).strict();
+const PathIdSchema = z
+  .string()
+  .min(1)
+  .openapi({ param: { name: "id", in: "path", required: true } });
+
+const PollIdRequestSchema = z.object({ id: PathIdSchema }).strict();
 
 registerRoute(router, {
   method: "get",
@@ -130,8 +136,8 @@ registerRoute(router, {
   },
 });
 
-const PollVoteRouteRequestSchema = PollVoteRequestSchema.extend({ id: z.string().min(1) }).strict();
-const LivePollVoteRequestSchema = PollVoteRequestSchema.extend({ id: z.string().min(1) }).strict();
+const PollVoteRouteRequestSchema = PollVoteRequestSchema.extend({ id: PathIdSchema }).strict();
+const LivePollVoteRequestSchema = PollVoteRequestSchema.extend({ id: PathIdSchema }).strict();
 
 registerRoute(router, {
   method: "post",
@@ -180,7 +186,7 @@ registerRoute(router, {
 registerRoute(router, {
   method: "post",
   path: "/live-polls/:id/attendees",
-  requestSchema: LivePollAttendeeRequestSchema.extend({ id: z.string().min(1) }).strict(),
+  requestSchema: LivePollAttendeeRequestSchema.extend({ id: PathIdSchema }).strict(),
   responseSchema: LivePollAttendeeSchema,
   meta: { section: "Live polls", description: "Join live poll." },
   middlewares: [],

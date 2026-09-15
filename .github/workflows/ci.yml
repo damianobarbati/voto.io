@@ -25,9 +25,11 @@ env:
 
 jobs:
   test:
-    timeout-minutes: 5
+    timeout-minutes: 20
     runs-on: ubuntu-24.04
     environment: test
+    permissions:
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -88,10 +90,19 @@ jobs:
           timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:8080/healthcheck); do printf .; sleep 1; done'
 
           # start webapp service
-          pnpm -F webapp build:dev &
+          pnpm -F webapp start:dev &
           timeout 10 sh -c 'until $(curl --output /dev/null --silent --head --fail http://localhost:3000); do printf .; sleep 1; done'
         
           pnpm -F e2e test
+
+      - name: DAST testing
+        run: ZAP_API_URL=http://127.0.0.1:8080 ZAP_WEBAPP_URL=http://127.0.0.1:3000 ZAP_DOCKER_NETWORK=host bash security/zap-run.sh
+
+      - name: Upload ZAP SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: zap-reports/combined.sarif
 
   build-and-deploy:
     timeout-minutes: 5
